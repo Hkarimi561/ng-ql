@@ -175,6 +175,24 @@ resource.getId(model: TModel): TId    // reads model[primaryKey ?? 'id']
 
 Every successful `create`/`update`/`patch`/`destroy` automatically invalidates cache entries owned by that resource's endpoint, plus any of the resource's configured `cacheTags`. Mutations are never cached themselves.
 
+### `@NgQlEndpoint` — per-method URL/HTTP-method/id-placement override
+
+By default `update`/`patch` send `PUT`/`PATCH ${endpoint}/:id` and `create` sends `POST ${endpoint}`. To use a different URL, HTTP method, or put the id in the body instead of the URL for one method on one resource, `override` that method (delegating to `super`) and decorate it:
+
+```ts
+class PostResource extends NgQlResource<Post> {
+  constructor(client: NgQlClient) { super(client, { endpoint: 'posts' }); }
+
+  @NgQlEndpoint({ url: 'posts/:id/save' })          // PUT /posts/:id/save
+  override update(id: number, payload: Partial<Post>) { return super.update(id, payload); }
+
+  @NgQlEndpoint({ method: 'POST', idIn: 'body' })   // POST /posts with { id, ...payload }
+  override patch(id: number, payload: Partial<Post>) { return super.patch(id, payload); }
+}
+```
+
+`NgQlEndpointOptions`: `url?: string | ((endpoint, id?) => string)` (`:id` placeholder in a string template; default `${endpoint}/:id`, or `endpoint` when `idIn: 'body'`), `method?: NgQlHttpMethod` (default: the method's usual verb), `idIn?: 'url' | 'body'` (default `'url'`; `'body'` merges the id into the payload under `primaryKey`, unless already present). Undecorated methods keep default behavior.
+
 ## Caching policies (`NgQlCachePolicy`)
 
 Only relevant to the `*Signal` methods (`NgQlSignalRequestOptions` extends `NgQlRequestOptions` with `cache`, `cacheTtl`, `cacheKey`, `cacheTags`, `retry`, `retryDelay`). Plain Observable methods always hit the network.

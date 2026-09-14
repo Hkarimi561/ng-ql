@@ -8,7 +8,7 @@ import { provideNgQl } from '../config/provide-ng-ql';
 import { NgQlClient } from '../client/ng-ql-client';
 import { NgQlCacheService } from '../cache/ng-ql-cache.service';
 import { NgQlValidationError } from '../errors/ng-ql-validation-error';
-import { PostResource, WidgetResource } from '../testing/test-post-resource';
+import { ArticleResource, PostResource, WidgetResource } from '../testing/test-post-resource';
 
 describe('NgQlResource + NgQlQueryBuilder (integration)', () => {
   let httpMock: HttpTestingController;
@@ -351,5 +351,50 @@ describe('NgQlResource + NgQlQueryBuilder (integration)', () => {
   it('getId() honors a custom primaryKey from NgQlResourceConfig', () => {
     const widgets = new WidgetResource(TestBed.inject(NgQlClient));
     expect(widgets.getId({ uuid: 'abc-123', name: 'Gadget' })).toBe('abc-123');
+  });
+
+  // -----------------------------------------------------------------------
+  // @NgQlEndpoint per-method overrides
+  // -----------------------------------------------------------------------
+
+  describe('@NgQlEndpoint overrides', () => {
+    let articles: ArticleResource;
+
+    beforeEach(() => {
+      articles = new ArticleResource(TestBed.inject(NgQlClient));
+    });
+
+    it('honors a custom url template for update()', async () => {
+      const promise = firstValueFrom(articles.update(1, { title: 'Updated' }));
+      const req = httpMock.expectOne('/api/articles/1/save');
+      expect(req.request.method).toBe('PUT');
+      req.flush({ id: 1, title: 'Updated' });
+      await expect(promise).resolves.toEqual({ id: 1, title: 'Updated' });
+    });
+
+    it('idIn: "body" posts to the bare endpoint with the id merged into the body', async () => {
+      const promise = firstValueFrom(articles.patch(1, { title: 'Patched' }));
+      const req = httpMock.expectOne('/api/articles');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ id: 1, title: 'Patched' });
+      req.flush({ id: 1, title: 'Patched' });
+      await expect(promise).resolves.toEqual({ id: 1, title: 'Patched' });
+    });
+
+    it('idIn: "body" does not overwrite an id already present in the payload', async () => {
+      const promise = firstValueFrom(articles.patch(1, { id: 1, title: 'Patched' }));
+      const req = httpMock.expectOne('/api/articles');
+      expect(req.request.body).toEqual({ id: 1, title: 'Patched' });
+      req.flush({ id: 1, title: 'Patched' });
+      await promise;
+    });
+
+    it('leaves undecorated methods (create, destroy) at their default behavior', async () => {
+      const promise = firstValueFrom(articles.destroy(1));
+      const req = httpMock.expectOne('/api/articles/1');
+      expect(req.request.method).toBe('DELETE');
+      req.flush(null);
+      await promise;
+    });
   });
 });

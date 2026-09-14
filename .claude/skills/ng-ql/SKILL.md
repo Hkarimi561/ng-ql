@@ -207,6 +207,39 @@ Every successful mutation **automatically invalidates** cache entries owned by t
 endpoint plus its configured `cacheTags` — do not add manual `NgQlCacheService.invalidate*` calls
 after a mutation unless invalidating something in a _different_ resource/tag.
 
+## Task: customize one method's URL, HTTP method, or id placement
+
+By default `update`/`patch` send `PUT`/`PATCH ${endpoint}/:id` and `create` sends
+`POST ${endpoint}`. When a backend deviates — a different path, a different verb, or the id
+belongs in the body instead of the URL (e.g. `POST /posts` with `{ id, ...payload }`) — `override`
+just that method (delegating to `super`) and decorate it with `@NgQlEndpoint`. Do not reimplement
+the method from scratch; the decorator only changes how the base implementation resolves its URL.
+
+```ts
+class PostResource extends NgQlResource<Post, number> {
+  constructor(client: NgQlClient) {
+    super(client, { endpoint: 'posts' });
+  }
+
+  @NgQlEndpoint({ url: 'posts/:id/save' })          // PUT /posts/:id/save
+  override update(id: number, payload: Partial<Post>) {
+    return super.update(id, payload);
+  }
+
+  @NgQlEndpoint({ method: 'POST', idIn: 'body' })   // POST /posts, body: { id, ...payload }
+  override patch(id: number, payload: Partial<Post>) {
+    return super.patch(id, payload);
+  }
+}
+```
+
+`NgQlEndpointOptions`: `url?: string | ((endpoint, id?) => string)` — a string template's `:id` is
+replaced with the id argument (default `${endpoint}/:id`, or bare `endpoint` when
+`idIn: 'body'`); `method?: NgQlHttpMethod` (default: the method's usual verb — `PUT` for `update`,
+etc.); `idIn?: 'url' | 'body'` (default `'url'`) — `'body'` merges the id into the payload under
+this resource's `primaryKey` (default `'id'`) unless the payload already has that key. Methods you
+don't override (typically `create`/`destroy`) keep their default behavior untouched.
+
 ## Task: test against ng-ql
 
 Use `HttpTestingController`, exactly as with plain `HttpClient`:

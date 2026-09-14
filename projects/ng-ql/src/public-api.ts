@@ -12,6 +12,8 @@ export { NgQlClient } from './lib/client/ng-ql-client';
 // Resource
 export { NgQlResource } from './lib/resource/ng-ql-resource';
 export type { NgQlResourceConfig } from './lib/resource/resource-config';
+export { NgQlEndpoint } from './lib/resource/ng-ql-endpoint.decorator';
+export type { NgQlEndpointOptions } from './lib/resource/ng-ql-endpoint.decorator';
 
 // Query builder
 export { NgQlQueryBuilder } from './lib/query/ng-ql-query-builder';

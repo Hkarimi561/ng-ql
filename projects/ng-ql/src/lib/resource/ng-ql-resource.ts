@@ -7,9 +7,11 @@ import { NgQlParamCodec } from '../serializers/ng-ql-param-codec';
 import { buildCacheKey } from '../cache/cache-key';
 import { NgQlQueryBuilder } from '../query/ng-ql-query-builder';
 import type { NgQlQueryContext } from '../query/query-context';
+import type { NgQlHttpMethod } from '../models/query-types';
 import type { NgQlRequestOptions, NgQlSignalRequestOptions } from '../models/request-options';
 import type { NgQlRequestState } from '../models/state';
 import { NgQlRequestStateImpl } from '../state/request-state';
+import { getEndpointOptions } from './ng-ql-endpoint.decorator';
 import type { NgQlResourceConfig } from './resource-config';
 
 function emptyParams(): HttpParams {
@@ -133,29 +135,70 @@ export abstract class NgQlResource<TModel, TId = string | number> {
   }
 
   create(payload: Partial<TModel>, options?: NgQlRequestOptions): Observable<TModel> {
-    const url = this.client.resolveUrl(this.context.endpoint);
-    return this.mutate<unknown>('POST', url, payload, options).pipe(
+    const { url, method, body } = this.resolveEndpoint('create', 'POST', undefined, payload);
+    return this.mutate<unknown>(method, url, body, options).pipe(
       map((raw) => this.requireItem(raw)),
     );
   }
 
   update(id: TId, payload: Partial<TModel>, options?: NgQlRequestOptions): Observable<TModel> {
-    const url = this.client.resolveUrl(this.context.buildItemUrl(id));
-    return this.mutate<unknown>('PUT', url, payload, options).pipe(
+    const { url, method, body } = this.resolveEndpoint('update', 'PUT', id, payload);
+    return this.mutate<unknown>(method, url, body, options).pipe(
       map((raw) => this.requireItem(raw)),
     );
   }
 
   patch(id: TId, payload: Partial<TModel>, options?: NgQlRequestOptions): Observable<TModel> {
-    const url = this.client.resolveUrl(this.context.buildItemUrl(id));
-    return this.mutate<unknown>('PATCH', url, payload, options).pipe(
+    const { url, method, body } = this.resolveEndpoint('patch', 'PATCH', id, payload);
+    return this.mutate<unknown>(method, url, body, options).pipe(
       map((raw) => this.requireItem(raw)),
     );
   }
 
   destroy(id: TId, options?: NgQlRequestOptions): Observable<void> {
-    const url = this.client.resolveUrl(this.context.buildItemUrl(id));
-    return this.mutate<unknown>('DELETE', url, undefined, options).pipe(map(() => undefined));
+    const { url, method, body } = this.resolveEndpoint('destroy', 'DELETE', id, undefined);
+    return this.mutate<unknown>(method, url, body, options).pipe(map(() => undefined));
+  }
+
+  /**
+   * Resolves the URL, HTTP method, and body for a CRUD method, honoring a
+   * `@NgQlEndpoint` override declared on this instance's class (if any) for
+   * `methodName`. `idIn: 'body'` (whether from the override or its default)
+   * drops the id from the URL and merges it into the body under this
+   * resource's `primaryKey` instead, unless the payload already has that key.
+   */
+  private resolveEndpoint(
+    methodName: string,
+    defaultMethod: NgQlHttpMethod,
+    id: TId | undefined,
+    payload: unknown,
+  ): { url: string; method: NgQlHttpMethod; body: unknown } {
+    const override = getEndpointOptions(this, methodName);
+    const idIn = override?.idIn ?? 'url';
+    const method = override?.method ?? defaultMethod;
+
+    let path: string;
+    if (override?.url) {
+      path =
+        typeof override.url === 'function'
+          ? override.url(this.context.endpoint, id)
+          : override.url.replace(':id', id === undefined ? '' : encodeURIComponent(String(id)));
+    } else if (idIn === 'body' || id === undefined) {
+      path = this.context.endpoint;
+    } else {
+      path = this.context.buildItemUrl(id);
+    }
+
+    let body = payload;
+    if (idIn === 'body' && id !== undefined) {
+      const key = this.resourceConfig.primaryKey ?? 'id';
+      const record = (payload ?? {}) as Record<string, unknown>;
+      if (!(key in record)) {
+        body = { [key]: id, ...record };
+      }
+    }
+
+    return { url: this.client.resolveUrl(path), method, body };
   }
 
   private requireItem(raw: unknown): TModel {
@@ -169,7 +212,7 @@ export abstract class NgQlResource<TModel, TId = string | number> {
   }
 
   private mutate<T>(
-    method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    method: NgQlHttpMethod,
     url: string,
     body: unknown,
     options: NgQlRequestOptions | undefined,

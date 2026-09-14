@@ -310,6 +310,7 @@ If you use [Claude Code](https://claude.com/claude-code), there's also a ready-m
 | `DefaultNgQlQuerySerializer` / `NgQlQuerySerializer`                                 | Query → `HttpParams` serialization. Accepts `DefaultNgQlQuerySerializerOptions` (`filterPrefix`). |
 | `DefaultNgQlResponseAdapter` / `NgQlResponseAdapter`                                 | Response → model normalization.                                               |
 | `NgQlConfig`, `NgQlResourceConfig`, `NgQlRequestOptions`, `NgQlSignalRequestOptions` | Configuration interfaces.                                                     |
+| `NgQlEndpoint` / `NgQlEndpointOptions`                                               | Method decorator — per-method URL/HTTP-method/id-placement override.         |
 | `NgQlRequestState<T>`, `NgQlPaginatedRequestState<T>`                                | Signal-backed request state.                                                  |
 | `NgQlPaginationMeta`, `NgQlPaginationLinks`, `NgQlPaginatedResponse<T>`              | Normalized pagination shapes.                                                 |
 | `NgQlRequestDescription`                                                             | Inspectable request shape from `toRequest()`.                                 |
@@ -351,3 +352,39 @@ class WidgetResource extends NgQlResource<Widget> {
 
 this.widgets.getId(widget); // reads widget.uuid
 ```
+
+#### `@NgQlEndpoint` — per-method URL/method/id-placement overrides
+
+By default `update`/`patch` send `PUT`/`PATCH /posts/:id` and `create` sends `POST /posts`. Some backends don't follow that: they want a custom path, a different HTTP method, or the id in the request body instead of the URL (e.g. `POST /posts` with `{ id, ...payload }`). Override just the method(s) that differ by declaring an `override` that delegates to `super` and decorating it with `@NgQlEndpoint`:
+
+```ts
+import { NgQlEndpoint, NgQlResource } from 'ng-ql';
+
+class PostResource extends NgQlResource<Post> {
+  constructor(client: NgQlClient) {
+    super(client, { endpoint: 'posts' });
+  }
+
+  // Custom URL template — ':id' is replaced with the id argument:
+  @NgQlEndpoint({ url: 'posts/:id/save' })
+  override update(id: number, payload: Partial<Post>) {
+    return super.update(id, payload);
+  }
+
+  // id in the body instead of the URL: POST /posts with { id, ...payload }:
+  @NgQlEndpoint({ method: 'POST', idIn: 'body' })
+  override patch(id: number, payload: Partial<Post>) {
+    return super.patch(id, payload);
+  }
+}
+```
+
+`NgQlEndpointOptions`:
+
+| Option   | Type                                                         | Default                                          |
+| -------- | ------------------------------------------------------------ | ------------------------------------------------- |
+| `url`    | `string \| ((endpoint, id?) => string)`                       | `${endpoint}/:id` (or `endpoint` when `idIn: 'body'`) |
+| `method` | `'GET' \| 'POST' \| 'PUT' \| 'PATCH' \| 'DELETE'`             | the method's usual default (`PUT` for `update`, etc.) |
+| `idIn`   | `'url' \| 'body'`                                             | `'url'`                                            |
+
+`idIn: 'body'` merges the id into the payload under this resource's `primaryKey` (default `'id'`), unless the payload already has that key. Undecorated methods (`create`, `destroy`, or any method you don't override) keep their default URL/method/id behavior untouched.
