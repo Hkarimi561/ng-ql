@@ -14,13 +14,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Hkarimi561/ng-ql.git",
+    "url": "git+https://github.com/Hkarimi561/ng-ql.git",
     "directory": "projects/ng-ql"
   },
   "bugs": {
     "url": "https://github.com/Hkarimi561/ng-ql/issues"
   },
-  "homepage": "https://github.com/Hkarimi561/ng-ql#readme",
+  "homepage": "https://hkarimi561.github.io/ng-ql/",
   "peerDependencies": {
     "@angular/common": "^21.0.0",
     "@angular/core": "^21.0.0",
