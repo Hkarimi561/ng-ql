@@ -1,0 +1,535 @@
+<div class="shell">
+  <header class="shell__header">
+    <div class="shell__brand">
+      <span class="shell__logo">ng-ql</span>
+      <span class="shell__tagline">Interactive query console</span>
+    </div>
+    <div class="shell__mock">
+      <label class="mock-toggle">
+        <input
+          type="checkbox"
+          [ngModel]="mock.enabled()"
+          (ngModelChange)="mock.enabled.set($event)"
+        />
+        Mock API
+      </label>
+      <label class="mock-field">
+        Latency
+        <input
+          type="number"
+          min="0"
+          step="50"
+          [ngModel]="mock.latencyMs()"
+          (ngModelChange)="mock.latencyMs.set($event)"
+        />ms
+      </label>
+      <label class="mock-field">
+        Error rate
+        <input
+          type="number"
+          min="0"
+          max="100"
+          [ngModel]="mock.errorRate()"
+          (ngModelChange)="mock.errorRate.set($event)"
+        />%
+      </label>
+    </div>
+  </header>
+
+  <nav class="view-tabs">
+    <button
+      type="button"
+      class="view-tabs__tab"
+      [class.view-tabs__tab--active]="activeView() === 'console'"
+      (click)="activeView.set('console')"
+    >
+      Interactive console
+    </button>
+    <button
+      type="button"
+      class="view-tabs__tab"
+      [class.view-tabs__tab--active]="activeView() === 'examples'"
+      (click)="activeView.set('examples')"
+    >
+      Component examples
+    </button>
+  </nav>
+
+  @if (activeView() === 'console') {
+    <nav class="resource-tabs">
+      @for (def of resourceKinds; track def.kind) {
+        <button
+          type="button"
+          class="resource-tabs__tab"
+          [class.resource-tabs__tab--active]="resourceKind() === def.kind"
+          (click)="selectResource(def.kind)"
+        >
+          {{ def.label }}
+        </button>
+      }
+    </nav>
+  }
+
+  @if (activeView() === 'examples') {
+    <section class="examples">
+      <p class="examples__intro">
+        These are complete, hand-written Angular components — not the dynamic query builder above.
+        Each one injects its <code>NgQlResource</code> subclass directly, lists data with a
+        <code>paginateSignal(...)</code>, and wires <code>create</code> / <code>update</code> /
+        <code>patch</code> / <code>destroy</code> to real UI actions. Source:
+        <code>projects/showcase/src/app/examples/</code>.
+      </p>
+
+      <div class="examples__toolbar">
+        <nav class="resource-tabs">
+          @for (def of resourceKinds; track def.kind) {
+            <button
+              type="button"
+              class="resource-tabs__tab"
+              [class.resource-tabs__tab--active]="exampleResource() === def.kind"
+              (click)="selectExampleResource(def.kind)"
+            >
+              {{ def.label }}
+            </button>
+          }
+        </nav>
+
+        <div class="view-toggle">
+          <button
+            type="button"
+            class="btn btn--ghost"
+            [class.btn--active]="exampleViewMode() === 'demo'"
+            (click)="exampleViewMode.set('demo')"
+          >
+            Demo
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            [class.btn--active]="exampleViewMode() === 'code'"
+            (click)="exampleViewMode.set('code')"
+          >
+            Code
+          </button>
+        </div>
+      </div>
+
+      @if (exampleViewMode() === 'demo') {
+        <div class="panel examples__panel">
+          @switch (exampleResource()) {
+            @case ('posts') {
+              <app-post-manager />
+            }
+            @case ('users') {
+              <app-user-manager />
+            }
+            @case ('products') {
+              <app-product-manager />
+            }
+          }
+        </div>
+      } @else {
+        <div class="panel examples__panel examples__code">
+          <nav class="file-tabs">
+            @for (file of exampleSourceSet().files; track file.path; let i = $index) {
+              <button
+                type="button"
+                class="file-tabs__tab"
+                [class.file-tabs__tab--active]="exampleFileIndex() === i"
+                (click)="exampleFileIndex.set(i)"
+              >
+                {{ file.name }}
+              </button>
+            }
+          </nav>
+
+          @if (exampleSourceSet().files[exampleFileIndex()]; as file) {
+            <app-code-block [code]="file.code" [label]="file.path" maxHeight="520px" />
+          }
+        </div>
+      }
+    </section>
+  }
+
+  @if (activeView() === 'console') {
+    <main class="layout">
+      <section class="panel builder">
+        <h2 class="panel__title">Query builder</h2>
+
+        <div class="field-group">
+          <div class="field-group__header">
+            <h3>Filters (where)</h3>
+            <button type="button" class="btn btn--ghost" (click)="addWhere()">+ Add filter</button>
+          </div>
+          @for (where of wheres(); track where.id) {
+            <div class="where-row">
+              <select
+                [ngModel]="where.field"
+                (ngModelChange)="updateWhere(where.id, { field: $event })"
+              >
+                @for (f of resourceDef().fields; track f.name) {
+                  <option [value]="f.name">{{ f.label }}</option>
+                }
+              </select>
+              <select
+                [ngModel]="where.operator"
+                (ngModelChange)="updateWhere(where.id, { operator: $event })"
+              >
+                @for (op of operators; track op) {
+                  <option [value]="op">{{ op }}</option>
+                }
+              </select>
+              <input
+                type="text"
+                placeholder="value"
+                [ngModel]="where.value"
+                (ngModelChange)="updateWhere(where.id, { value: $event })"
+              />
+              <button
+                type="button"
+                class="btn btn--icon"
+                (click)="removeWhere(where.id)"
+                aria-label="Remove filter"
+              >
+                ✕
+              </button>
+            </div>
+          } @empty {
+            <p class="hint">No filters yet — add one to narrow the query.</p>
+          }
+        </div>
+
+        <div class="field-group field-group--split">
+          <div>
+            <h3>Sort</h3>
+            <div class="sort-row">
+              <select [ngModel]="sortField()" (ngModelChange)="sortField.set($event)">
+                <option value="">None</option>
+                @for (f of resourceDef().fields; track f.name) {
+                  <option [value]="f.name">{{ f.label }}</option>
+                }
+              </select>
+              <select [ngModel]="sortDir()" (ngModelChange)="sortDir.set($event)">
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <h3>Pagination</h3>
+            <div class="sort-row">
+              <label class="inline-field">
+                Page
+                <input type="number" min="1" [ngModel]="page()" (ngModelChange)="setPage($event)" />
+              </label>
+              <label class="inline-field">
+                Per page
+                <input
+                  type="number"
+                  min="1"
+                  [ngModel]="perPage()"
+                  (ngModelChange)="setPerPage($event)"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group field-group--split">
+          <div>
+            <h3>Include relations</h3>
+            <div class="chip-list">
+              @for (relation of resourceDef().relations; track relation) {
+                <button
+                  type="button"
+                  class="chip"
+                  [class.chip--active]="includes().includes(relation)"
+                  (click)="toggleInclude(relation)"
+                >
+                  {{ relation }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <div>
+            <h3>Select fields</h3>
+            <div class="chip-list">
+              @for (f of resourceDef().fields; track f.name) {
+                <button
+                  type="button"
+                  class="chip"
+                  [class.chip--active]="selectedFields().includes(f.name)"
+                  (click)="toggleField(f.name)"
+                >
+                  {{ f.label }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <h3>Cache policy</h3>
+          <div class="chip-list">
+            @for (policy of cachePolicies; track policy) {
+              <button
+                type="button"
+                class="chip"
+                [class.chip--active]="cachePolicy() === policy"
+                (click)="cachePolicy.set(policy)"
+              >
+                {{ policy }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            [disabled]="!canExecute()"
+            (click)="execute()"
+          >
+            Execute
+          </button>
+          <button type="button" class="btn" (click)="refresh()" [disabled]="!requestState()">
+            Refresh
+          </button>
+          <button type="button" class="btn" (click)="invalidate()" [disabled]="!requestState()">
+            Invalidate cache
+          </button>
+          <button type="button" class="btn btn--ghost" (click)="reset()">Reset</button>
+        </div>
+      </section>
+
+      <section class="panel inspector">
+        <h2 class="panel__title">Request inspector</h2>
+
+        <div class="url-preview">
+          <code>{{ previewUrl() }}</code>
+          <button type="button" class="btn btn--icon" (click)="copyUrl()" aria-label="Copy URL">
+            ⧉
+          </button>
+        </div>
+
+        <table class="params-table">
+          <thead>
+            <tr>
+              <th>Param</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of previewParams(); track p.key + p.value) {
+              <tr>
+                <td>
+                  <code>{{ p.key }}</code>
+                </td>
+                <td>
+                  <code>{{ p.value }}</code>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="2" class="hint">No query parameters.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <app-code-block [code]="generatedCode()" label="Generated TypeScript" />
+      </section>
+
+      <section class="panel response">
+        <div class="panel__title-row">
+          <h2 class="panel__title">Response</h2>
+          <div class="view-toggle">
+            <button
+              type="button"
+              class="btn btn--ghost"
+              [class.btn--active]="viewMode() === 'table'"
+              (click)="viewMode.set('table')"
+            >
+              Table
+            </button>
+            <button
+              type="button"
+              class="btn btn--ghost"
+              [class.btn--active]="viewMode() === 'json'"
+              (click)="viewMode.set('json')"
+            >
+              JSON
+            </button>
+          </div>
+        </div>
+
+        @if (!requestState()) {
+          <p class="hint hint--empty">Run a query to see results here.</p>
+        } @else {
+          @let state = requestState()!;
+
+          <div class="status-row">
+            <span class="status-badge" [class]="'status-badge--' + state.status()">{{
+              state.status()
+            }}</span>
+            @if (state.loading()) {
+              <span class="spinner" aria-hidden="true"></span>
+            }
+            @if (state.meta(); as meta) {
+              <span class="meta-summary">
+                Page {{ meta.currentPage }} / {{ meta.lastPage }} · {{ meta.total }} total
+              </span>
+            }
+          </div>
+
+          @if (state.error(); as error) {
+            <div class="error-banner">
+              <strong>Request failed.</strong>
+              <span>{{ errorMessage(error) }}</span>
+            </div>
+          }
+
+          @if (state.loading() && !state.hasData()) {
+            <p class="hint">Loading…</p>
+          } @else if (state.hasData() && (state.data()?.length ?? 0) === 0) {
+            <p class="hint hint--empty">No results match this query.</p>
+          } @else if (state.hasData()) {
+            @if (viewMode() === 'table') {
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      @for (col of displayColumns(); track col) {
+                        <th>{{ col }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of state.data(); track $index) {
+                      <tr
+                        class="data-table__row"
+                        (click)="selectRowForMutation(row)"
+                        title="Click to load into the mutation form below"
+                      >
+                        @for (col of displayColumns(); track col) {
+                          <td>{{ row[col] }}</td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <pre class="json-view">{{ state.data() | json }}</pre>
+            }
+
+            @if (state.meta(); as meta) {
+              <div class="pagination-bar">
+                <button
+                  type="button"
+                  class="btn"
+                  [disabled]="meta.currentPage <= 1"
+                  (click)="setPage(meta.currentPage - 1)"
+                >
+                  ← Prev
+                </button>
+                <span>Page {{ meta.currentPage }} of {{ meta.lastPage }}</span>
+                <button
+                  type="button"
+                  class="btn"
+                  [disabled]="meta.currentPage >= (meta.lastPage ?? 1)"
+                  (click)="setPage(meta.currentPage + 1)"
+                >
+                  Next →
+                </button>
+              </div>
+            }
+          }
+        }
+      </section>
+
+      <section class="panel mutations">
+        <h2 class="panel__title">Mutations — POST · PUT · PATCH · DELETE</h2>
+        <p class="hint">
+          Click a row above to load its fields here, or fill them in manually. Every mutation
+          automatically invalidates ng-ql's cache for this resource.
+        </p>
+
+        <div class="field-group">
+          <h3>Target ID (required for PUT / PATCH / DELETE)</h3>
+          <input
+            type="text"
+            class="mutation-id"
+            placeholder="e.g. 3"
+            [ngModel]="mutationId()"
+            (ngModelChange)="mutationId.set($event)"
+          />
+        </div>
+
+        <div class="field-group">
+          <h3>Fields</h3>
+          <div class="mutation-fields">
+            @for (f of mutationFields(); track f.name) {
+              <label class="mutation-field">
+                {{ f.label }}
+                <input
+                  type="text"
+                  [ngModel]="mutationForm()[f.name]"
+                  (ngModelChange)="setMutationField(f.name, $event)"
+                />
+              </label>
+            }
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn--primary" (click)="runCreate()">
+            POST — Create
+          </button>
+          <button type="button" class="btn" [disabled]="!mutationId()" (click)="runUpdate()">
+            PUT — Update
+          </button>
+          <button type="button" class="btn" [disabled]="!mutationId()" (click)="runPatch()">
+            PATCH — Partial update
+          </button>
+          <button
+            type="button"
+            class="btn btn--danger"
+            [disabled]="!mutationId()"
+            (click)="runDestroy()"
+          >
+            DELETE
+          </button>
+          <button type="button" class="btn btn--ghost" (click)="resetMutationForm()">
+            Clear form
+          </button>
+        </div>
+
+        @if (mutationStatus() !== 'idle') {
+          <div class="status-row">
+            <span class="status-badge" [class]="'status-badge--' + mutationStatus()">{{
+              mutationStatus()
+            }}</span>
+            <span class="meta-summary">{{ mutationAction() | uppercase }}</span>
+          </div>
+        }
+
+        @if (mutationError(); as error) {
+          <div class="error-banner">
+            <strong>Mutation failed.</strong>
+            <span>{{ errorMessage(error) }}</span>
+          </div>
+        }
+
+        @if (mutationResult(); as result) {
+          <pre class="json-view">{{ result | json }}</pre>
+        }
+
+        <app-code-block [code]="mutationCode()" label="Generated TypeScript" />
+      </section>
+    </main>
+  }
+</div>

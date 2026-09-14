@@ -1,0 +1,115 @@
+<div class="manager">
+  <header class="manager__header">
+    <div>
+      <h3>Users</h3>
+      <p class="manager__hint">
+        Live example — <code>UserResource</code> extends <code>NgQlResource&lt;User&gt;</code>.
+      </p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="startCreate()">+ New user</button>
+  </header>
+
+  @if (formOpen()) {
+    <form class="manager__form" (ngSubmit)="save()">
+      <label>
+        Name
+        <input
+          name="name"
+          type="text"
+          [ngModel]="form.name"
+          (ngModelChange)="form.name = $event"
+          required
+        />
+      </label>
+      <label>
+        Email
+        <input
+          name="email"
+          type="email"
+          [ngModel]="form.email"
+          (ngModelChange)="form.email = $event"
+          required
+        />
+      </label>
+      <label>
+        Role
+        <select name="role" [ngModel]="form.role" (ngModelChange)="form.role = $event">
+          <option value="admin">Admin</option>
+          <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </label>
+      <label class="manager__checkbox">
+        <input
+          name="active"
+          type="checkbox"
+          [ngModel]="form.active"
+          (ngModelChange)="form.active = $event"
+        />
+        Active
+      </label>
+      <div class="manager__form-actions">
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ editingId() === null ? 'Create user' : 'Save changes' }}
+        </button>
+        <button type="button" class="btn btn--ghost" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
+  }
+
+  @if (usersState.error()) {
+    <div class="error-banner">Something went wrong loading users. Try again.</div>
+  }
+
+  @if (usersState.loading() && !usersState.hasData()) {
+    <p class="hint">Loading users…</p>
+  } @else if (usersState.hasData() && usersState.data()!.length === 0) {
+    <p class="hint hint--empty">No users yet — create one above.</p>
+  } @else if (usersState.hasData()) {
+    <ul class="user-list">
+      @for (user of usersState.data(); track user.id) {
+        <li class="user-row">
+          <div class="user-row__identity">
+            <span class="user-row__name">{{ user.name }}</span>
+            <span class="user-row__email">{{ user.email }}</span>
+          </div>
+          <span class="role-chip" [class]="'role-chip--' + user.role">{{ user.role }}</span>
+          <button
+            type="button"
+            class="active-toggle"
+            [class.active-toggle--on]="user.active"
+            (click)="toggleActive(user)"
+          >
+            {{ user.active ? 'Active' : 'Inactive' }}
+          </button>
+          <div class="user-row__actions">
+            <button type="button" class="btn btn--ghost" (click)="startEdit(user)">Edit</button>
+            <button type="button" class="btn btn--danger" (click)="remove(user.id)">Delete</button>
+          </div>
+        </li>
+      }
+    </ul>
+
+    @if (usersState.meta(); as meta) {
+      <div class="pagination-bar">
+        <button
+          type="button"
+          class="btn"
+          [disabled]="meta.currentPage <= 1"
+          (click)="setPage(meta.currentPage - 1)"
+        >
+          ← Prev
+        </button>
+        <span>Page {{ meta.currentPage }} of {{ meta.lastPage }}</span>
+        <button
+          type="button"
+          class="btn"
+          [disabled]="meta.currentPage >= (meta.lastPage ?? 1)"
+          (click)="setPage(meta.currentPage + 1)"
+        >
+          Next →
+        </button>
+      </div>
+    }
+  }
+</div>

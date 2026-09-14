@@ -1,0 +1,71 @@
+{
+  "name": "ng-ql-workspace",
+  "version": "0.0.1",
+  "description": "Monorepo for ng-ql (an Eloquent-inspired HTTP query builder for Angular) and its showcase application.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hkarimi561/ng-ql.git"
+  },
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "lint": "ng lint",
+    "format": "prettier --write \"projects/**/*.{ts,html,scss}\"",
+    "format:check": "prettier --check \"projects/**/*.{ts,html,scss}\"",
+    "build:lib": "ng build ng-ql",
+    "build:showcase": "ng build showcase",
+    "generate:example-sources": "node scripts/generate-example-sources.mjs"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "overrides": [
+      {
+        "files": "*.html",
+        "options": {
+          "parser": "angular"
+        }
+      }
+    ]
+  },
+  "private": true,
+  "packageManager": "npm@11.12.1",
+  "dependencies": {
+    "@angular/common": "^21.0.0",
+    "@angular/compiler": "^21.0.0",
+    "@angular/core": "^21.0.0",
+    "@angular/forms": "^21.0.0",
+    "@angular/platform-browser": "^21.0.0",
+    "@angular/router": "^21.0.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular-eslint/builder": "^21.1.0",
+    "@angular-eslint/schematics": "^21.1.0",
+    "@angular/build": "^21.0.4",
+    "@angular/cli": "^21.0.4",
+    "@angular/compiler-cli": "^21.0.0",
+    "angular-eslint": "^21.1.0",
+    "eslint": "^9.9.1",
+    "jsdom": "^27.1.0",
+    "ng-packagr": "^21.0.0",
+    "prettier": "^3.7.4",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.50.1",
+    "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "@babel/core": "7.28.5",
+    "@babel/parser": "7.28.5",
+    "@babel/generator": "7.28.5",
+    "@babel/traverse": "7.28.5",
+    "@babel/types": "7.28.5",
+    "@babel/code-frame": "7.27.1",
+    "@babel/compat-data": "7.28.5",
+    "@babel/helpers": "7.28.4"
+  }
+}

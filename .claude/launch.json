@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "showcase",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ng", "serve", "showcase", "--port", "4300"],
+      "port": 4300
+    }
+  ]
+}

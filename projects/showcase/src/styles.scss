@@ -1,0 +1,152 @@
+:root {
+  --ngql-bg: #0f1115;
+  --ngql-surface: #171a21;
+  --ngql-surface-hover: #1f232c;
+  --ngql-border: #2a2f3a;
+  --ngql-text: #e6e8ee;
+  --ngql-muted: #8b93a7;
+  --ngql-accent: #6c8bff;
+  --ngql-accent-strong: #4f6df5;
+  --ngql-success: #3fbf7f;
+  --ngql-error: #ef5c5c;
+  --ngql-warning: #e0a93f;
+  --ngql-code-bg: #0c0e13;
+  --ngql-code-bar-bg: #14161c;
+  --ngql-code-text: #d6dae3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ngql-bg);
+  color: var(--ngql-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/*
+ * Shared, global utility classes. Kept here (rather than per-component)
+ * so every showcase feature — the interactive console and the standalone
+ * example components alike — can reuse the same look without duplicating
+ * button/state styling in every component's emulated-encapsulation scss.
+ */
+
+.btn {
+  border: 1px solid var(--ngql-border);
+  background: var(--ngql-surface);
+  color: var(--ngql-text);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--ngql-surface-hover);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--ngql-accent);
+  border-color: var(--ngql-accent);
+  color: white;
+  font-weight: 600;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--ngql-accent-strong);
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.btn--active {
+  background: var(--ngql-surface-hover);
+  font-weight: 600;
+}
+
+.btn--icon {
+  padding: 0.35rem 0.55rem;
+}
+
+.btn--danger {
+  border-color: var(--ngql-error);
+  color: var(--ngql-error);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: rgba(239, 92, 92, 0.12);
+}
+
+.hint {
+  color: var(--ngql-muted);
+  font-size: 0.85rem;
+}
+
+.hint--empty {
+  padding: 2rem 0;
+  text-align: center;
+}
+
+.error-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: rgba(239, 92, 92, 0.1);
+  border: 1px solid var(--ngql-error);
+  color: var(--ngql-error);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.85rem;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--ngql-muted);
+  margin-top: 0.75rem;
+}
+
+.status-badge {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--ngql-border);
+}
+
+.status-badge--idle {
+  color: var(--ngql-muted);
+}
+
+.status-badge--loading {
+  color: var(--ngql-warning);
+  border-color: var(--ngql-warning);
+}
+
+.status-badge--success {
+  color: var(--ngql-success);
+  border-color: var(--ngql-success);
+}
+
+.status-badge--error {
+  color: var(--ngql-error);
+  border-color: var(--ngql-error);
+}

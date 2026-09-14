@@ -1,0 +1,118 @@
+<div class="manager">
+  <header class="manager__header">
+    <div>
+      <h3>Posts</h3>
+      <p class="manager__hint">
+        Live example — <code>PostResource</code> extends <code>NgQlResource&lt;Post&gt;</code>.
+      </p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="startCreate()">+ New post</button>
+  </header>
+
+  @if (formOpen()) {
+    <form class="manager__form" (ngSubmit)="save()">
+      <label>
+        Title
+        <input
+          name="title"
+          type="text"
+          [ngModel]="form.title"
+          (ngModelChange)="form.title = $event"
+          required
+        />
+      </label>
+      <label>
+        Status
+        <select name="status" [ngModel]="form.status" (ngModelChange)="form.status = $event">
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="archived">Archived</option>
+        </select>
+      </label>
+      <label>
+        Category ID
+        <input
+          name="categoryId"
+          type="number"
+          [ngModel]="form.categoryId"
+          (ngModelChange)="form.categoryId = $event"
+        />
+      </label>
+      <label>
+        Author ID
+        <input
+          name="authorId"
+          type="number"
+          [ngModel]="form.authorId"
+          (ngModelChange)="form.authorId = $event"
+        />
+      </label>
+      <div class="manager__form-actions">
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ editingId() === null ? 'Create post' : 'Save changes' }}
+        </button>
+        <button type="button" class="btn btn--ghost" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
+  }
+
+  @if (postsState.error()) {
+    <div class="error-banner">Something went wrong loading posts. Try again.</div>
+  }
+
+  @if (postsState.loading() && !postsState.hasData()) {
+    <p class="hint">Loading posts…</p>
+  } @else if (postsState.hasData() && postsState.data()!.length === 0) {
+    <p class="hint hint--empty">No posts yet — create one above.</p>
+  } @else if (postsState.hasData()) {
+    <ul class="post-list">
+      @for (post of postsState.data(); track post.id) {
+        <li class="post-card">
+          <div class="post-card__main">
+            <span class="post-card__title">{{ post.title }}</span>
+            <span class="status-chip" [class]="'status-chip--' + post.status">{{
+              post.status
+            }}</span>
+          </div>
+          <div class="post-card__meta">
+            #{{ post.id }} · {{ post.views }} views · {{ post.createdAt | date: 'mediumDate' }}
+          </div>
+          <div class="post-card__actions">
+            <button type="button" class="btn btn--ghost" (click)="startEdit(post)">Edit</button>
+            <button
+              type="button"
+              class="btn btn--ghost"
+              [disabled]="post.status === 'published'"
+              (click)="publish(post)"
+            >
+              Publish
+            </button>
+            <button type="button" class="btn btn--danger" (click)="remove(post.id)">Delete</button>
+          </div>
+        </li>
+      }
+    </ul>
+
+    @if (postsState.meta(); as meta) {
+      <div class="pagination-bar">
+        <button
+          type="button"
+          class="btn"
+          [disabled]="meta.currentPage <= 1"
+          (click)="setPage(meta.currentPage - 1)"
+        >
+          ← Prev
+        </button>
+        <span>Page {{ meta.currentPage }} of {{ meta.lastPage }}</span>
+        <button
+          type="button"
+          class="btn"
+          [disabled]="meta.currentPage >= (meta.lastPage ?? 1)"
+          (click)="setPage(meta.currentPage + 1)"
+        >
+          Next →
+        </button>
+      </div>
+    }
+  }
+</div>

@@ -1,0 +1,125 @@
+<div class="manager">
+  <header class="manager__header">
+    <div>
+      <h3>Products</h3>
+      <p class="manager__hint">
+        Live example — <code>ProductResource</code> extends
+        <code>NgQlResource&lt;Product&gt;</code>.
+      </p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="startCreate()">+ New product</button>
+  </header>
+
+  @if (formOpen()) {
+    <form class="manager__form" (ngSubmit)="save()">
+      <label>
+        Name
+        <input
+          name="name"
+          type="text"
+          [ngModel]="form.name"
+          (ngModelChange)="form.name = $event"
+          required
+        />
+      </label>
+      <label>
+        Category
+        <input
+          name="category"
+          type="text"
+          [ngModel]="form.category"
+          (ngModelChange)="form.category = $event"
+        />
+      </label>
+      <label>
+        Price
+        <input
+          name="price"
+          type="number"
+          step="0.01"
+          [ngModel]="form.price"
+          (ngModelChange)="form.price = $event"
+        />
+      </label>
+      <label>
+        Stock
+        <input
+          name="stock"
+          type="number"
+          [ngModel]="form.stock"
+          (ngModelChange)="form.stock = $event"
+        />
+      </label>
+      <label class="manager__checkbox">
+        <input
+          name="featured"
+          type="checkbox"
+          [ngModel]="form.featured"
+          (ngModelChange)="form.featured = $event"
+        />
+        Featured
+      </label>
+      <div class="manager__form-actions">
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ editingId() === null ? 'Create product' : 'Save changes' }}
+        </button>
+        <button type="button" class="btn btn--ghost" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
+  }
+
+  @if (productsState.error()) {
+    <div class="error-banner">Something went wrong loading products. Try again.</div>
+  }
+
+  @if (productsState.loading() && !productsState.hasData()) {
+    <p class="hint">Loading products…</p>
+  } @else if (productsState.hasData() && productsState.data()!.length === 0) {
+    <p class="hint hint--empty">No products yet — create one above.</p>
+  } @else if (productsState.hasData()) {
+    <ul class="product-grid">
+      @for (product of productsState.data(); track product.id) {
+        <li class="product-card">
+          @if (product.featured) {
+            <span class="product-card__badge">★ Featured</span>
+          }
+          <span class="product-card__name">{{ product.name }}</span>
+          <span class="product-card__category">{{ product.category }}</span>
+          <span class="product-card__price">{{ product.price | currency }}</span>
+          <span class="product-card__stock">{{ product.stock }} in stock</span>
+          <div class="product-card__actions">
+            <button type="button" class="btn btn--ghost" (click)="toggleFeatured(product)">
+              {{ product.featured ? 'Unfeature' : 'Feature' }}
+            </button>
+            <button type="button" class="btn btn--ghost" (click)="startEdit(product)">Edit</button>
+            <button type="button" class="btn btn--danger" (click)="remove(product.id)">
+              Delete
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+
+    @if (productsState.meta(); as meta) {
+      <div class="pagination-bar">
+        <button
+          type="button"
+          class="btn"
+          [disabled]="meta.currentPage <= 1"
+          (click)="setPage(meta.currentPage - 1)"
+        >
+          ← Prev
+        </button>
+        <span>Page {{ meta.currentPage }} of {{ meta.lastPage }}</span>
+        <button
+          type="button"
+          class="btn"
+          [disabled]="meta.currentPage >= (meta.lastPage ?? 1)"
+          (click)="setPage(meta.currentPage + 1)"
+        >
+          Next →
+        </button>
+      </div>
+    }
+  }
+</div>

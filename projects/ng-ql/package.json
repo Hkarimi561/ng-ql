@@ -1,0 +1,33 @@
+{
+  "name": "ng-ql",
+  "version": "0.0.1",
+  "description": "An Eloquent-inspired HTTP request and query builder for Angular, built on HttpClient, Signals, and RxJS. Not an ORM.",
+  "keywords": [
+    "angular",
+    "http",
+    "query-builder",
+    "rest",
+    "signals",
+    "rxjs",
+    "eloquent"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hkarimi561/ng-ql.git",
+    "directory": "projects/ng-ql"
+  },
+  "bugs": {
+    "url": "https://github.com/Hkarimi561/ng-ql/issues"
+  },
+  "homepage": "https://github.com/Hkarimi561/ng-ql#readme",
+  "peerDependencies": {
+    "@angular/common": "^21.0.0",
+    "@angular/core": "^21.0.0",
+    "rxjs": "^7.8.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}
