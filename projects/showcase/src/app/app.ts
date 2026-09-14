@@ -18,6 +18,7 @@ import { PostManagerComponent } from './examples/post-manager.component';
 import { ProductManagerComponent } from './examples/product-manager.component';
 import { EXAMPLE_SOURCES } from './examples/source-code';
 import { UserManagerComponent } from './examples/user-manager.component';
+import { HelpComponent } from './help/help.component';
 import { RESOURCE_DEFS, type ResourceKind } from './models/domain';
 import { OPERATORS, type UiWhereClause } from './models/ui-state';
 import { PostResource } from './resources/post-resource';
@@ -25,7 +26,7 @@ import { ProductResource } from './resources/product-resource';
 import { UserResource } from './resources/user-resource';
 import { MockApiService } from './services/mock-api.service';
 
-type ShowcaseView = 'console' | 'examples';
+type ShowcaseView = 'help' | 'console' | 'examples';
 type ExampleViewMode = 'demo' | 'code';
 
 type Row = Record<string, unknown>;
@@ -49,6 +50,7 @@ let whereIdSeq = 0;
     PostManagerComponent,
     UserManagerComponent,
     ProductManagerComponent,
+    HelpComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

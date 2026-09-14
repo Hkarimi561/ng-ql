@@ -53,7 +53,19 @@
     >
       Component examples
     </button>
+    <button
+      type="button"
+      class="view-tabs__tab"
+      [class.view-tabs__tab--active]="activeView() === 'help'"
+      (click)="activeView.set('help')"
+    >
+      Help / Install
+    </button>
   </nav>
+
+  @if (activeView() === 'help') {
+    <app-help />
+  }
 
   @if (activeView() === 'console') {
     <nav class="resource-tabs">

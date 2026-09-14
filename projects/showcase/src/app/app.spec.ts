@@ -134,6 +134,19 @@ describe('App', () => {
     expect(compiled.textContent).toContain('PostResource');
   });
 
+  it('switches to the Help / Install tab and renders installation and usage docs', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    clickButton(fixture, 'Help / Install');
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('app-help')).toBeTruthy();
+    expect(compiled.textContent).toContain('npm install ng-ql');
+    expect(compiled.textContent).toContain('provideNgQl');
+    expect(compiled.textContent).toContain('stale-while-revalidate');
+  });
+
   it('shows the full model/service/component/template source in the Code view', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

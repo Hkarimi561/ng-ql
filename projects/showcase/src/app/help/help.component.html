@@ -1,0 +1,113 @@
+<div class="help">
+  <header class="help__intro">
+    <h2>Getting started with ng-ql</h2>
+    <p>
+      An Eloquent-inspired HTTP request and query builder for Angular — built on
+      <code>HttpClient</code>, Signals, and RxJS. <strong>It is not an ORM</strong>: no database, no
+      models, no identity map. It builds, serializes, executes, caches, and types HTTP requests
+      against your REST API.
+    </p>
+    <div class="help__links">
+      <a href="https://github.com/Hkarimi561/ng-ql" target="_blank" rel="noopener"
+        >GitHub repository</a
+      >
+      <a href="https://www.npmjs.com/package/ng-ql" target="_blank" rel="noopener">npm package</a>
+      <a
+        href="https://github.com/Hkarimi561/ng-ql/blob/main/projects/ng-ql/README.md"
+        target="_blank"
+        rel="noopener"
+      >
+        Full README / API reference
+      </a>
+    </div>
+  </header>
+
+  <section class="help__section">
+    <h3>1. Install</h3>
+    <p>
+      Only <code>@angular/core</code>, <code>@angular/common</code>, and <code>rxjs</code> are
+      required — nothing else.
+    </p>
+    <app-code-block [code]="install" label="terminal" />
+  </section>
+
+  <section class="help__section">
+    <h3>2. Register the provider</h3>
+    <p>
+      <code>provideNgQl</code> sets the base URL, default headers, and default cache behavior for
+      every resource in your app.
+    </p>
+    <app-code-block [code]="providerSetup" label="main.ts" />
+  </section>
+
+  <section class="help__section">
+    <h3>3. Define a model and a resource</h3>
+    <p>
+      A model is a plain TypeScript interface — no base class, no decorators. A resource extends
+      <code>NgQlResource</code> and points it at an endpoint.
+    </p>
+    <div class="help__grid">
+      <app-code-block [code]="model" label="post.model.ts" />
+      <app-code-block [code]="resource" label="post-resource.ts" />
+    </div>
+  </section>
+
+  <section class="help__section">
+    <h3>4. Query it — Observable API</h3>
+    <p>
+      Every read returns an RxJS <code>Observable</code>, exactly like
+      <code>HttpClient</code> itself.
+    </p>
+    <app-code-block [code]="observableUsage" label="post-list.component.ts" />
+  </section>
+
+  <section class="help__section">
+    <h3>5. Query it — Signal API</h3>
+    <p>
+      Every read also has a Signal-based twin exposing <code>data</code>, <code>loading</code>,
+      <code>error</code>, and <code>status</code> — with built-in caching.
+    </p>
+    <app-code-block [code]="signalUsage" label="post-list.component.ts" />
+  </section>
+
+  <section class="help__section">
+    <h3>6. Caching policies</h3>
+    <table class="help__table">
+      <thead>
+        <tr>
+          <th>Policy</th>
+          <th>Behavior</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of cachePolicies; track row.policy) {
+          <tr>
+            <td>
+              <code>{{ row.policy }}</code>
+            </td>
+            <td>{{ row.behavior }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="help__section">
+    <h3>7. Create, update, patch, delete</h3>
+    <p>Every mutation automatically invalidates the cache entries it affects.</p>
+    <app-code-block [code]="crudUsage" label="post-list.component.ts" />
+  </section>
+
+  <section class="help__section">
+    <h3>8. Testing with HttpTestingController</h3>
+    <app-code-block [code]="testingUsage" label="post-resource.spec.ts" />
+  </section>
+
+  <section class="help__section help__section--footer">
+    <p>
+      Want to see it running? Switch to the <strong>Interactive console</strong> tab to build
+      queries live against a mock API, or <strong>Component examples</strong> to see three complete,
+      real feature components — including their full model/service/component source.
+    </p>
+  </section>
+</div>
