@@ -1,6 +1,6 @@
 {
   "name": "ng-ql",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "description": "An Eloquent-inspired HTTP request and query builder for Angular, built on HttpClient, Signals, and RxJS. Not an ORM.",
   "keywords": [
     "angular",
