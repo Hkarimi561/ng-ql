@@ -175,6 +175,18 @@
             <h3>Filters (where)</h3>
             <button type="button" class="btn btn--ghost" (click)="addWhere()">+ Add filter</button>
           </div>
+          <label class="inline-field inline-field--checkbox" [class.hint]="!canUseObjectWhere()">
+            <input
+              type="checkbox"
+              [ngModel]="useObjectWhere()"
+              (ngModelChange)="useObjectWhere.set($event)"
+              [disabled]="!canUseObjectWhere()"
+            />
+            Generate as object-form <code>.where({{ '{' }} ... {{ '}' }})</code>
+            @if (!canUseObjectWhere()) {
+              <span class="hint"> (needs 1+ equality filters)</span>
+            }
+          </label>
           @for (where of wheres(); track where.id) {
             <div class="where-row">
               <select
@@ -321,6 +333,16 @@
 
       <section class="panel inspector">
         <h2 class="panel__title">Request inspector</h2>
+
+        <label class="inline-field inline-field--checkbox">
+          <input
+            type="checkbox"
+            [ngModel]="useFilterPrefix()"
+            (ngModelChange)="setUseFilterPrefix($event)"
+          />
+          Wrap filters in <code>filter[...]</code>
+          <span class="hint"> (uncheck for bare <code>field=value</code>)</span>
+        </label>
 
         <div class="url-preview">
           <code>{{ previewUrl() }}</code>

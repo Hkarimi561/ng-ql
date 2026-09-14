@@ -251,6 +251,20 @@
   width: 4.5rem;
 }
 
+.inline-field--checkbox {
+  margin: 0.5rem 0;
+}
+
+.inline-field--checkbox input {
+  width: auto;
+}
+
+.inline-field--checkbox code {
+  background: var(--ngql-bg);
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+}
+
 select,
 input[type='text'],
 input[type='number'] {

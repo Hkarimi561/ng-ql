@@ -20,6 +20,17 @@ const OPERATOR_SUFFIX: Partial<Record<QueryOperator, string>> = {
   'not like': 'not_like',
 };
 
+/** Options accepted by {@link DefaultNgQlQuerySerializer}. */
+export interface DefaultNgQlQuerySerializerOptions {
+  /**
+   * Prefix wrapping every filter param, e.g. `'filter'` produces
+   * `filter[status]=published`. Pass `null` (or `''`) to emit bare field
+   * names instead — `status=published` — for backends that don't use a
+   * `filter[...]` envelope. Defaults to `'filter'`.
+   */
+  readonly filterPrefix?: string | null;
+}
+
 /** Renders a scalar `QueryValue` to its wire string form. `null` becomes the literal `"null"`. */
 function stringify(value: QueryValue): string {
   if (value === null) return 'null';
@@ -47,29 +58,32 @@ function sortByField(wheres: readonly NgQlWhereCondition[]): NgQlWhereCondition[
   return [...wheres].sort((a, b) => a.field.localeCompare(b.field));
 }
 
+/** Builds `prefix[field]`, or bare `field` when `prefix` is empty. */
+function fieldKey(prefix: string, field: string): string {
+  return prefix ? `${prefix}[${field}]` : field;
+}
+
 function appendWhere(params: HttpParams, prefix: string, where: NgQlWhereCondition): HttpParams {
+  const base = fieldKey(prefix, where.field);
   switch (where.kind) {
     case 'basic': {
       const suffix = OPERATOR_SUFFIX[where.operator] ?? '';
-      const key = suffix ? `${prefix}[${where.field}][${suffix}]` : `${prefix}[${where.field}]`;
-      return params.append(key, stringify(where.value));
+      return params.append(suffix ? `${base}[${suffix}]` : base, stringify(where.value));
     }
     case 'in': {
-      const key = where.negate
-        ? `${prefix}[${where.field}][not_in][]`
-        : `${prefix}[${where.field}][]`;
+      const key = where.negate ? `${base}[not_in][]` : `${base}[]`;
       for (const value of where.values) {
         params = params.append(key, stringify(value));
       }
       return params;
     }
     case 'null': {
-      const key = where.negate ? `${prefix}[${where.field}][ne]` : `${prefix}[${where.field}]`;
+      const key = where.negate ? `${base}[ne]` : base;
       return params.append(key, 'null');
     }
     case 'between': {
       return params.append(
-        `${prefix}[${where.field}][between]`,
+        `${base}[between]`,
         `${stringify(where.range[0])},${stringify(where.range[1])}`,
       );
     }
@@ -110,20 +124,40 @@ function appendWhere(params: HttpParams, prefix: string, where: NgQlWhereConditi
  * where('status', 'published').orWhere('featured', true)
  *   => filter[or][0][status]=published&filter[or][1][featured]=true
  * ```
+ *
+ * The `filter[...]` wrapper itself is optional — pass `filterPrefix: null`
+ * to emit bare field names instead:
+ *
+ * ```ts
+ * new DefaultNgQlQuerySerializer({ filterPrefix: null });
+ * // where('id', 1122)                          => id=1122
+ * // where('status', 'published').orWhere(...)  => or[0][status]=published&or[1][...]
+ * ```
  */
 export class DefaultNgQlQuerySerializer implements NgQlQuerySerializer {
+  private readonly filterPrefix: string;
+
+  constructor(options?: DefaultNgQlQuerySerializerOptions) {
+    const prefix = options?.filterPrefix;
+    // `??` alone can't distinguish "option omitted" from "explicitly null" (both
+    // are nullish), so check for `undefined` first — only that case defaults to
+    // 'filter'; an explicit `null` must fall through to the bare-field mode.
+    this.filterPrefix = prefix === undefined ? 'filter' : (prefix ?? '');
+  }
+
   serialize(state: NgQlQueryState): HttpParams {
     let params = new HttpParams({ encoder: new NgQlParamCodec() });
 
     const groups = groupWheres(state.wheres);
     if (groups.length <= 1) {
       for (const where of sortByField(groups[0] ?? [])) {
-        params = appendWhere(params, 'filter', where);
+        params = appendWhere(params, this.filterPrefix, where);
       }
     } else {
+      const orRoot = this.filterPrefix ? `${this.filterPrefix}[or]` : 'or';
       groups.forEach((group, index) => {
         for (const where of sortByField(group)) {
-          params = appendWhere(params, `filter[or][${index}]`, where);
+          params = appendWhere(params, `${orRoot}[${index}]`, where);
         }
       });
     }

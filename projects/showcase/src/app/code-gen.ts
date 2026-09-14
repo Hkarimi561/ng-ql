@@ -12,6 +12,8 @@ export interface CodeGenInput {
   readonly page: number;
   readonly perPage: number;
   readonly cachePolicy: NgQlCachePolicy;
+  /** Render equality filters as a single `.where({ ... })` object instead of chained `.where(field, value)` calls. */
+  readonly objectWhere?: boolean;
 }
 
 function quote(value: string): string {
@@ -30,14 +32,19 @@ export function generateCode(input: CodeGenInput): string {
   const propertyName = input.resourceKind;
   const lines: string[] = [`this.${propertyName}`, '  .query()'];
 
-  for (const where of input.wheres) {
-    if (!where.field) continue;
-    if (where.operator === '=') {
-      lines.push(`  .where(${quote(where.field)}, ${literalValue(where.value)})`);
-    } else {
-      lines.push(
-        `  .where(${quote(where.field)}, ${quote(where.operator)}, ${literalValue(where.value)})`,
-      );
+  const wheres = input.wheres.filter((w) => w.field);
+  if (input.objectWhere && wheres.length > 0) {
+    const body = wheres.map((w) => `${w.field}: ${literalValue(w.value)}`).join(', ');
+    lines.push(`  .where({ ${body} })`);
+  } else {
+    for (const where of wheres) {
+      if (where.operator === '=') {
+        lines.push(`  .where(${quote(where.field)}, ${literalValue(where.value)})`);
+      } else {
+        lines.push(
+          `  .where(${quote(where.field)}, ${quote(where.operator)}, ${literalValue(where.value)})`,
+        );
+      }
     }
   }
 

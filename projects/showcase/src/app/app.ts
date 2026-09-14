@@ -25,6 +25,7 @@ import { PostResource } from './resources/post-resource';
 import { ProductResource } from './resources/product-resource';
 import { UserResource } from './resources/user-resource';
 import { MockApiService } from './services/mock-api.service';
+import { showcaseQuerySerializer } from './services/toggleable-query-serializer';
 
 type ShowcaseView = 'help' | 'console' | 'examples';
 type ExampleViewMode = 'demo' | 'code';
@@ -88,6 +89,15 @@ export class App {
   protected readonly perPage = signal(10);
   protected readonly cachePolicy = signal<NgQlCachePolicy>('no-store');
 
+  /** Toggles the actual HTTP query serialization between `filter[field]=value` and bare `field=value`. */
+  protected readonly useFilterPrefix = showcaseQuerySerializer.useFilterPrefix;
+  /** Toggles the generated code preview between chained `.where(a, v).where(b, v)` and object-form `.where({ a: v, b: v })`. */
+  protected readonly useObjectWhere = signal(false);
+  /** Object-form `where({...})` only supports equality conditions — true when every current filter is `=`. */
+  protected readonly canUseObjectWhere = computed(
+    () => this.wheres().length > 0 && this.wheres().every((w) => w.operator === '='),
+  );
+
   protected readonly requestState = signal<NgQlPaginatedRequestState<Row> | null>(null);
 
   // -- Mutations (create / update / patch / destroy) -----------------------
@@ -111,6 +121,7 @@ export class App {
       page: this.page(),
       perPage: this.perPage(),
       cachePolicy: this.cachePolicy(),
+      objectWhere: this.useObjectWhere() && this.canUseObjectWhere(),
     }),
   );
 
@@ -249,6 +260,11 @@ export class App {
   reset(): void {
     this.selectResource(this.resourceKind());
     this.cachePolicy.set('no-store');
+    this.useObjectWhere.set(false);
+  }
+
+  setUseFilterPrefix(value: boolean): void {
+    this.useFilterPrefix.set(value);
   }
 
   // -- Mutations ------------------------------------------------------------

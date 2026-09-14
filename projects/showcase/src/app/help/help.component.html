@@ -101,13 +101,28 @@
   </section>
 
   <section class="help__section">
-    <h3>7. Create, update, patch, delete</h3>
+    <h3>7. Object-form where, orWhere grouping, and the filter[...] envelope</h3>
+    <p>
+      <code>where</code>/<code>orWhere</code> accept an object of equality conditions instead of
+      <code>(field, value)</code> — every entry is AND-ed together. Consecutive
+      <code>where()</code> calls AND into the current group; <code>orWhere()</code> starts a new
+      group OR-ed against everything before it. The default serializer's
+      <code>filter[...]</code> wrapper is also optional — pass
+      <code>filterPrefix: null</code> to <code>DefaultNgQlQuerySerializer</code> for backends that
+      expect bare field names. Try the "Wrap filters in filter[...]" and "Generate as object-form"
+      toggles in the <strong>Interactive console</strong> tab to see both live.
+    </p>
+    <app-code-block [code]="advancedWhereUsage" label="post-list.component.ts" />
+  </section>
+
+  <section class="help__section">
+    <h3>8. Create, update, patch, delete</h3>
     <p>Every mutation automatically invalidates the cache entries it affects.</p>
     <app-code-block [code]="crudUsage" label="post-list.component.ts" />
   </section>
 
   <section class="help__section">
-    <h3>8. Testing with HttpTestingController</h3>
+    <h3>9. Testing with HttpTestingController</h3>
     <app-code-block [code]="testingUsage" label="post-resource.spec.ts" />
   </section>
 

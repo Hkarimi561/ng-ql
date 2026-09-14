@@ -109,6 +109,15 @@ starts a new group OR-ed against everything before it —
 `orWhere`. With no `orWhere` in the chain this is invisible (wire format is unchanged); once one
 appears, every group nests under `filter[or][<groupIndex>]`.
 
+`where`/`orWhere` also accept an object of equality conditions instead of `(field, value)` — every
+entry AND-ed together: `.where({ title: 'Hello', status: 'published' })`.
+
+The `filter[...]` envelope itself is optional. `DefaultNgQlQuerySerializer` accepts
+`{ filterPrefix }` — pass `filterPrefix: null` for backends that expect bare field names
+(`id=1122` instead of `filter[id]=1122`; OR-groups root under `or[<groupIndex>]` instead of
+`filter[or][<groupIndex>]`):
+`provideNgQl({ querySerializer: new DefaultNgQlQuerySerializer({ filterPrefix: null }) })`.
+
 Other execution methods: `.first(options?)` → `Observable<TModel | null>` (null, not a throw, on
 empty); `.paginate(page?, perPage?, options?)` → `Observable<NgQlPaginatedResponse<TModel>>`;
 `.find(id, options?)` → `Observable<TModel | null>`.

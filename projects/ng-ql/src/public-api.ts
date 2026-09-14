@@ -45,6 +45,7 @@ export type {
 // Serializers & adapters
 export type { NgQlQuerySerializer } from './lib/serializers/query-serializer';
 export { DefaultNgQlQuerySerializer } from './lib/serializers/default-query-serializer';
+export type { DefaultNgQlQuerySerializerOptions } from './lib/serializers/default-query-serializer';
 export type { NgQlResponseAdapter } from './lib/adapters/response-adapter';
 export { DefaultNgQlResponseAdapter } from './lib/adapters/default-response-adapter';
 

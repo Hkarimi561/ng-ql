@@ -246,4 +246,88 @@ describe('DefaultNgQlQuerySerializer', () => {
     expect(params.getAll('filter[or][0][categoryId][]')).toEqual(['1', '2']);
     expect(params.get('filter[or][1][price][between]')).toBe('10,20');
   });
+
+  // -----------------------------------------------------------------------
+  // Configurable filterPrefix
+  // -----------------------------------------------------------------------
+
+  describe('with filterPrefix: null', () => {
+    const bare = new DefaultNgQlQuerySerializer({ filterPrefix: null });
+
+    it('emits bare field names for a simple equality where', () => {
+      const params = bare.serialize({
+        ...EMPTY,
+        wheres: [and({ kind: 'basic', field: 'id', operator: '=', value: 1122 })],
+      });
+      expect(params.toString()).toBe('id=1122');
+      expect(params.has('filter[id]')).toBe(false);
+    });
+
+    it('still applies operator suffixes without the filter wrapper', () => {
+      const params = bare.serialize({
+        ...EMPTY,
+        wheres: [and({ kind: 'basic', field: 'price', operator: '>=', value: 100 })],
+      });
+      expect(params.get('price[gte]')).toBe('100');
+    });
+
+    it('still supports whereIn/whereNull/whereBetween without the filter wrapper', () => {
+      const params = bare.serialize({
+        ...EMPTY,
+        wheres: [
+          and({ kind: 'in', field: 'categoryId', values: [1, 2], negate: false }),
+          and({ kind: 'null', field: 'deletedAt', negate: false }),
+          and({ kind: 'between', field: 'price', range: [10, 20] }),
+        ],
+      });
+      expect(params.getAll('categoryId[]')).toEqual(['1', '2']);
+      expect(params.get('deletedAt')).toBe('null');
+      expect(params.get('price[between]')).toBe('10,20');
+    });
+
+    it('roots OR groups under "or[...]" instead of "filter[or][...]"', () => {
+      const params = bare.serialize({
+        ...EMPTY,
+        wheres: [
+          and({ kind: 'basic', field: 'status', operator: '=', value: 'published' }),
+          or({ kind: 'basic', field: 'featured', operator: '=', value: true }),
+        ],
+      });
+      expect(params.get('or[0][status]')).toBe('published');
+      expect(params.get('or[1][featured]')).toBe('true');
+      expect(params.has('filter[or][0][status]')).toBe(false);
+    });
+
+    it('leaves fields/include/sort/pagination untouched', () => {
+      const params = bare.serialize({
+        ...EMPTY,
+        selects: ['id', 'title'],
+        includes: ['author'],
+        sorts: [{ field: 'createdAt', direction: 'desc' }],
+        pageValue: 2,
+        perPageValue: 20,
+      });
+      expect(params.get('fields')).toBe('id,title');
+      expect(params.get('include')).toBe('author');
+      expect(params.get('sort')).toBe('-createdAt');
+      expect(params.get('page[number]')).toBe('2');
+      expect(params.get('page[size]')).toBe('20');
+    });
+  });
+
+  it('defaults to the "filter" prefix when no options are passed', () => {
+    const params = new DefaultNgQlQuerySerializer().serialize({
+      ...EMPTY,
+      wheres: [and({ kind: 'basic', field: 'id', operator: '=', value: 1122 })],
+    });
+    expect(params.get('filter[id]')).toBe('1122');
+  });
+
+  it('supports a custom, non-default filterPrefix', () => {
+    const params = new DefaultNgQlQuerySerializer({ filterPrefix: 'where' }).serialize({
+      ...EMPTY,
+      wheres: [and({ kind: 'basic', field: 'id', operator: '=', value: 1122 })],
+    });
+    expect(params.get('where[id]')).toBe('1122');
+  });
 });

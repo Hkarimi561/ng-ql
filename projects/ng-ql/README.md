@@ -235,6 +235,18 @@ where('status', 'published').orWhere('featured', true)
                                      => filter[or][0][status]=published&filter[or][1][featured]=true
 ```
 
+The `filter[...]` wrapper is optional — pass `filterPrefix: null` (or any other string) to `DefaultNgQlQuerySerializer` for backends that expect bare field names instead:
+
+```ts
+provideNgQl({
+  baseUrl: '/api',
+  querySerializer: new DefaultNgQlQuerySerializer({ filterPrefix: null }),
+});
+
+// where('id', 1122)                          => id=1122
+// where('status', 'published').orWhere(...)  => or[0][status]=published&or[1][...]
+```
+
 The default response adapter accepts a raw array, a `{ data: [...] }` collection, a `{ data: {...} }` or raw item, and a paginated `{ data, meta, links }` envelope (snake_case or camelCase meta keys).
 
 ## Request options and header precedence
@@ -295,7 +307,7 @@ If you use [Claude Code](https://claude.com/claude-code), there's also a ready-m
 | `NgQlQueryBuilder<TModel, TId>`                                                      | Class — immutable fluent query builder.                                       |
 | `NgQlCacheService`                                                                   | Injectable — Signal-request cache.                                            |
 | `NgQlValidationError`                                                                | Error class — thrown for invalid builder input before any request.            |
-| `DefaultNgQlQuerySerializer` / `NgQlQuerySerializer`                                 | Query → `HttpParams` serialization.                                           |
+| `DefaultNgQlQuerySerializer` / `NgQlQuerySerializer`                                 | Query → `HttpParams` serialization. Accepts `DefaultNgQlQuerySerializerOptions` (`filterPrefix`). |
 | `DefaultNgQlResponseAdapter` / `NgQlResponseAdapter`                                 | Response → model normalization.                                               |
 | `NgQlConfig`, `NgQlResourceConfig`, `NgQlRequestOptions`, `NgQlSignalRequestOptions` | Configuration interfaces.                                                     |
 | `NgQlRequestState<T>`, `NgQlPaginatedRequestState<T>`                                | Signal-backed request state.                                                  |

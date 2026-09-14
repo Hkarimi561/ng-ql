@@ -76,6 +76,27 @@ protected readonly postsPage = this.posts.query().paginateSignal(1, 10);
 // postsPage.data() / .meta() / .links()
 // postsPage.setPage(2) / postsPage.setPerPage(25)`;
 
+const ADVANCED_WHERE_USAGE = `// Object form: every entry is AND-ed together (equivalent to chaining .where(k, v) per key).
+this.posts.query().where({ status: 'published', featured: true });
+
+// orWhere() ORs a whole group against everything before it. Consecutive where() calls
+// AND within the current group; orWhere() starts a new group:
+//   where(a).where(b).orWhere(c).where(d)  =>  (a AND b) OR (c AND d)
+this.posts
+  .query()
+  .where('status', 'published')
+  .where('featured', true)
+  .orWhere({ role: 'admin', active: true }) // object form works on orWhere too
+  .get()
+  .subscribe((posts) => console.log(posts));
+
+// The default serializer's 'filter[...]' envelope is configurable per app:
+provideNgQl({
+  baseUrl: '/api',
+  // filter[id]=1122  ->  id=1122   (bare field names, no 'filter[...]' wrapper)
+  querySerializer: new DefaultNgQlQuerySerializer({ filterPrefix: null }),
+});`;
+
 const CRUD_USAGE = `this.posts.create({ title: 'New post', status: 'draft' }).subscribe();
 this.posts.update(1, { title: 'Replaces the whole record' }).subscribe();
 this.posts.patch(1, { status: 'published' }).subscribe();
@@ -118,6 +139,7 @@ export class HelpComponent {
   protected readonly resource = RESOURCE;
   protected readonly observableUsage = OBSERVABLE_USAGE;
   protected readonly signalUsage = SIGNAL_USAGE;
+  protected readonly advancedWhereUsage = ADVANCED_WHERE_USAGE;
   protected readonly crudUsage = CRUD_USAGE;
   protected readonly testingUsage = TESTING_USAGE;
 

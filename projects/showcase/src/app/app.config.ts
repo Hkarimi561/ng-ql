@@ -5,6 +5,7 @@ import { provideNgQl } from 'ng-ql';
 
 import { routes } from './app.routes';
 import { mockApiInterceptor } from './mock/mock-api.interceptor';
+import { showcaseQuerySerializer } from './services/toggleable-query-serializer';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -16,6 +17,7 @@ export const appConfig: ApplicationConfig = {
       defaultHeaders: { Accept: 'application/json' },
       defaultCachePolicy: 'no-store',
       defaultCacheTtl: 30_000,
+      querySerializer: showcaseQuerySerializer,
     }),
   ],
 };

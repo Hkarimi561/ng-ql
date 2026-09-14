@@ -235,6 +235,12 @@ where('status', 'published').orWhere('featured', true)
                                      => filter[or][0][status]=published&filter[or][1][featured]=true
 ```
 
+The `filter[...]` wrapper is configurable via `DefaultNgQlQuerySerializerOptions.filterPrefix` (default `'filter'`). Pass `filterPrefix: null` for bare field names — `id=1122` instead of `filter[id]=1122` — for backends that don't use a `filter[...]` envelope; the OR-group root becomes `or[<groupIndex>]` instead of `filter[or][<groupIndex>]` in that mode:
+
+```ts
+provideNgQl({ querySerializer: new DefaultNgQlQuerySerializer({ filterPrefix: null }) });
+```
+
 Override globally via `provideNgQl({ querySerializer })` to match a different backend convention (OData, JSON:API, a bespoke dialect, ...).
 
 ## Testing (HttpTestingController)
