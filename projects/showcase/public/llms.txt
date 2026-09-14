@@ -160,7 +160,7 @@ Every successful `create`/`update`/`patch`/`destroy` automatically invalidates c
 
 ## Caching policies (`NgQlCachePolicy`)
 
-Only relevant to the `*Signal` methods (`NgQlSignalRequestOptions` extends `NgQlRequestOptions` with `cache`, `cacheTtl`, `cacheKey`, `cacheTags`). Plain Observable methods always hit the network.
+Only relevant to the `*Signal` methods (`NgQlSignalRequestOptions` extends `NgQlRequestOptions` with `cache`, `cacheTtl`, `cacheKey`, `cacheTags`, `retry`, `retryDelay`). Plain Observable methods always hit the network.
 
 | Policy | Behavior |
 | --- | --- |
@@ -172,6 +172,14 @@ Only relevant to the `*Signal` methods (`NgQlSignalRequestOptions` extends `NgQl
 Cache keys are deterministic (method + resolved URL + normalized, order-independent params/headers/body), so equivalent query builders always hit the same cache entry regardless of chain order. Concurrent identical in-flight `GET`s are always deduplicated into one HTTP call, regardless of policy.
 
 `NgQlCacheService` (injectable, instance-scoped — never global/static) also exposes `invalidateKey(key)`, `invalidateTag(tag)`, `invalidateEndpoint(endpoint)`, `clear()`.
+
+### Retries
+
+`retry` (default `0`, disabled) and `retryDelay` (default `300`ms) on `NgQlSignalRequestOptions` retry a failed network attempt with exponential backoff (`retryDelay * 2^(attempt-1)`) *before* the policy's fallback/error kicks in — pairs naturally with `network-first`. Concurrent identical requests share a single retry sequence.
+
+```ts
+this.posts.query().getSignal({ cache: 'network-first', retry: 2, retryDelay: 300 });
+```
 
 ## Header precedence (ascending — later wins)
 

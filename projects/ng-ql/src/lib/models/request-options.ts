@@ -22,4 +22,13 @@ export interface NgQlSignalRequestOptions extends NgQlRequestOptions {
   readonly cacheKey?: string;
   /** Tags used for bulk cache invalidation. */
   readonly cacheTags?: readonly string[];
+  /**
+   * Max retry attempts on failure, before falling back to cache (for
+   * `network-first` / `stale-while-revalidate`) or erroring. Defaults to `0`
+   * (no retries). Each retry waits `retryDelay * 2^(attempt - 1)` — i.e.
+   * exponential backoff.
+   */
+  readonly retry?: number;
+  /** Base delay, in milliseconds, between retries. Defaults to `300`. */
+  readonly retryDelay?: number;
 }

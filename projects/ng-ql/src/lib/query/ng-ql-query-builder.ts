@@ -324,6 +324,8 @@ export class NgQlQueryBuilder<TModel, TId = string | number> {
       ttl: options?.cacheTtl ?? this.context.client.config.defaultCacheTtl,
       tags: options?.cacheTags ?? this.context.cacheTags,
       endpoint: this.context.endpoint,
+      retryCount: options?.retry,
+      retryDelay: options?.retryDelay,
       cache: this.context.client.cache,
       destroyRef,
     });
@@ -348,6 +350,8 @@ export class NgQlQueryBuilder<TModel, TId = string | number> {
       ttl: options?.cacheTtl ?? this.context.client.config.defaultCacheTtl,
       tags: options?.cacheTags ?? this.context.cacheTags,
       endpoint: this.context.endpoint,
+      retryCount: options?.retry,
+      retryDelay: options?.retryDelay,
       cache: this.context.client.cache,
       destroyRef,
     });
@@ -386,6 +390,8 @@ export class NgQlQueryBuilder<TModel, TId = string | number> {
       ttl: options?.cacheTtl ?? this.context.client.config.defaultCacheTtl,
       tags: options?.cacheTags ?? this.context.cacheTags,
       endpoint: this.context.endpoint,
+      retryCount: options?.retry,
+      retryDelay: options?.retryDelay,
       cache: this.context.client.cache,
       destroyRef,
     });

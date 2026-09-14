@@ -1,6 +1,6 @@
 {
   "name": "ng-ql-workspace",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Monorepo for ng-ql (an Eloquent-inspired HTTP query builder for Angular) and its showcase application.",
   "repository": {
     "type": "git",

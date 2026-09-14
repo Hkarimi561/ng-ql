@@ -161,6 +161,14 @@ Cache keys are deterministic (method + URL + normalized params/headers/body, ord
 so equivalent query chains built in a different method-call order still hit the same cache entry.
 Concurrent identical in-flight `GET`s are deduplicated regardless of policy.
 
+`retry`/`retryDelay` on `NgQlSignalRequestOptions` retry a failed network attempt (exponential
+backoff, `retryDelay * 2^(attempt-1)`) before a policy's fallback/error kicks in — defaults to `0`
+(no retries). Pairs naturally with `network-first`:
+
+```ts
+this.posts.query().getSignal({ cache: 'network-first', retry: 2, retryDelay: 300 });
+```
+
 ## Task: create / update / patch / delete
 
 ```ts

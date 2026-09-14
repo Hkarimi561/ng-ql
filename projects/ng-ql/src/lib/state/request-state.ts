@@ -12,6 +12,8 @@ export interface RequestStateOptions<T> {
   readonly ttl: number;
   readonly tags: readonly string[];
   readonly endpoint?: string;
+  readonly retryCount?: number;
+  readonly retryDelay?: number;
   readonly cache: NgQlCacheService;
   readonly destroyRef: DestroyRef;
 }
@@ -56,6 +58,8 @@ export class NgQlRequestStateImpl<T> implements NgQlRequestState<T> {
       ttl: this.options.ttl,
       tags: this.options.tags,
       endpoint: this.options.endpoint,
+      retryCount: this.options.retryCount,
+      retryDelay: this.options.retryDelay,
       mode,
       callbacks: {
         onValue: (value) => {

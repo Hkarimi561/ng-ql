@@ -99,6 +99,55 @@ describe('Signal-based request state', () => {
     expect(state.data()).toBeNull();
   });
 
+  it('retries with exponential backoff before succeeding, using a single retry sequence', async () => {
+    vi.useFakeTimers();
+    const state = TestBed.runInInjectionContext(() =>
+      posts.allSignal({ cache: 'no-store', retry: 2, retryDelay: 100 }),
+    );
+
+    // Attempt 1 fails.
+    httpMock.expectOne('/api/posts').flush('boom', { status: 500, statusText: 'Server Error' });
+    expect(state.status()).toBe('loading');
+
+    // First backoff: 100ms.
+    await vi.advanceTimersByTimeAsync(100);
+    httpMock
+      .expectOne('/api/posts')
+      .flush('boom again', { status: 500, statusText: 'Server Error' });
+    expect(state.status()).toBe('loading');
+
+    // Second backoff: 200ms (doubled).
+    await vi.advanceTimersByTimeAsync(200);
+    httpMock.expectOne('/api/posts').flush([{ id: 1, title: 'Recovered' }]);
+
+    expect(state.status()).toBe('success');
+    expect(state.data()).toEqual([{ id: 1, title: 'Recovered' }]);
+  });
+
+  it('gives up after exhausting retries and falls back to cache (network-first)', async () => {
+    vi.useFakeTimers();
+    const cache = TestBed.inject(NgQlCacheService);
+    cache.set('preset-key', [{ id: 9, title: 'Fallback' }], { ttl: 60_000 });
+
+    const state = TestBed.runInInjectionContext(() =>
+      posts.allSignal({ cache: 'network-first', cacheKey: 'preset-key', retry: 1, retryDelay: 50 }),
+    );
+
+    httpMock.expectOne('/api/posts').flush('boom', { status: 500, statusText: 'Server Error' });
+    await vi.advanceTimersByTimeAsync(50);
+    httpMock.expectOne('/api/posts').flush('boom', { status: 500, statusText: 'Server Error' });
+
+    expect(state.status()).toBe('success');
+    expect(state.data()).toEqual([{ id: 9, title: 'Fallback' }]);
+    expect(state.error()).not.toBeNull();
+  });
+
+  it('does not retry by default (retry defaults to 0)', () => {
+    const state = TestBed.runInInjectionContext(() => posts.allSignal({ cache: 'no-store' }));
+    httpMock.expectOne('/api/posts').flush('boom', { status: 500, statusText: 'Server Error' });
+    expect(state.status()).toBe('error');
+  });
+
   it('stale-while-revalidate serves cached data immediately, then updates after revalidation', () => {
     const cache = TestBed.inject(NgQlCacheService);
     cache.set('preset-key', [{ id: 1, title: 'Stale' }], { ttl: 60_000 });

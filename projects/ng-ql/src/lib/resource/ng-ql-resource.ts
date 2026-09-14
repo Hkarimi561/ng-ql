@@ -117,6 +117,8 @@ export abstract class NgQlResource<TModel, TId = string | number> {
       ttl: options?.cacheTtl ?? this.client.config.defaultCacheTtl,
       tags: options?.cacheTags ?? this.context.cacheTags,
       endpoint: this.context.endpoint,
+      retryCount: options?.retry,
+      retryDelay: options?.retryDelay,
       cache: this.client.cache,
       destroyRef,
     });

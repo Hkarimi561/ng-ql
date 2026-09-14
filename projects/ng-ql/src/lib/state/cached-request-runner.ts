@@ -1,7 +1,23 @@
 import type { DestroyRef } from '@angular/core';
-import type { Observable } from 'rxjs';
+import { type Observable, retry, timer } from 'rxjs';
 import type { NgQlCachePolicy } from '../models/cache-policy';
 import type { NgQlCacheService } from '../cache/ng-ql-cache.service';
+
+/**
+ * Wraps a fetch with retry-with-exponential-backoff: attempt 1 fails → wait
+ * `baseDelayMs`, attempt 2 fails → wait `baseDelayMs * 2`, and so on. A
+ * `count` of 0 (the default) disables retrying entirely, preserving prior
+ * behavior.
+ */
+function withRetry<T>(source: Observable<T>, count: number, baseDelayMs: number): Observable<T> {
+  if (count <= 0) return source;
+  return source.pipe(
+    retry({
+      count,
+      delay: (_error, attempt) => timer(baseDelayMs * 2 ** (attempt - 1)),
+    }),
+  );
+}
 
 export interface RunnerCallbacks<T> {
   /** A value became available, from cache or network. */
@@ -20,6 +36,10 @@ export interface RunOptions<T> {
   readonly endpoint?: string;
   /** `refresh` always bypasses the `cache-first` shortcut and hits the network. */
   readonly mode: 'initial' | 'refresh';
+  /** Max retry attempts on failure, before falling back to cache (if any) or erroring. Defaults to 0. */
+  readonly retryCount?: number;
+  /** Base delay (ms) between retries, doubled on each subsequent attempt. Defaults to 300. */
+  readonly retryDelay?: number;
   readonly callbacks: RunnerCallbacks<T>;
 }
 
@@ -53,10 +73,14 @@ export class CachedRequestRunner<T> {
       (policy === 'stale-while-revalidate' && !!cached) || (policy === 'network-first' && !!cached);
 
     options.callbacks.onLoadingChange(true);
+    const fetchWithRetry = () =>
+      withRetry(options.fetch(), options.retryCount ?? 0, options.retryDelay ?? 300);
     // Deduplication applies regardless of policy: it only avoids issuing a
     // second concurrent HTTP call, independent of whether the *result* cache
-    // (governed by `policy`) is read from or written to.
-    const network = this.cache.dedupe(cacheKey, options.fetch);
+    // (governed by `policy`) is read from or written to. Retrying happens
+    // inside the deduped source, so concurrent callers share one retry
+    // sequence instead of each retrying independently.
+    const network = this.cache.dedupe(cacheKey, fetchWithRetry);
 
     const subscription = network.subscribe({
       next: (value) => {

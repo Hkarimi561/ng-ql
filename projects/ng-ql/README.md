@@ -135,6 +135,18 @@ Concurrent, identical in-flight `GET` requests are always deduplicated into a si
 
 Cache keys are deterministic — method, resolved URL, and normalized (order-independent) params/headers/body — so equivalent query builders always hit the same cache entry.
 
+### Retries
+
+Every Signal request accepts `retry` (max attempts, default `0` — disabled) and `retryDelay` (base delay in ms, default `300`) on `NgQlSignalRequestOptions`. Retries use exponential backoff (`retryDelay * 2^(attempt - 1)`) and happen _before_ a policy's fallback/error behavior — most useful with `network-first`, so a couple of quick retries can recover from a blip before falling back to cache:
+
+```ts
+this.posts.query().getSignal({ cache: 'network-first', retry: 2, retryDelay: 300 });
+// attempt 1 fails -> wait 300ms -> attempt 2 fails -> wait 600ms -> attempt 3
+// succeeds, or falls back to cache / errors if it also fails.
+```
+
+Concurrent identical requests share one retry sequence — retrying doesn't multiply outstanding HTTP calls.
+
 ### Invalidation
 
 - `state.invalidate()` drops the cache entry backing that Signal state and resets it to `idle`.
