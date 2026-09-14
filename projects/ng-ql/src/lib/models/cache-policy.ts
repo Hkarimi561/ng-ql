@@ -8,7 +8,4 @@
  *   request refreshes both the signal state and the cache.
  */
 export type NgQlCachePolicy =
-  | 'no-store'
-  | 'cache-first'
-  | 'network-first'
-  | 'stale-while-revalidate';
+  'no-store' | 'cache-first' | 'network-first' | 'stale-while-revalidate';

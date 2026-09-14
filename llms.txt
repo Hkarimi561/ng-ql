@@ -66,6 +66,9 @@ this.posts
   .query()
   .where('status', 'published')          // shorthand: field, value  => equality
   .where('price', '>=', 100)              // explicit operator: field, operator, value
+  .where({ title: 'Hello', name: 'Test' }) // object form: every entry AND-ed together
+  .orWhere('featured', true)              // ORs a new group against everything before it
+  .orWhere({ role: 'admin', active: true }) // object form works on orWhere too
   .whereIn('categoryId', [1, 2])
   .whereNotIn('authorId', [9])
   .whereNull('deletedAt')
@@ -87,6 +90,8 @@ this.posts
 ```
 
 Supported operators for the explicit `where(field, operator, value)` form: `'=' | '!=' | '<>' | '>' | '>=' | '<' | '<=' | 'like' | 'not like'`.
+
+`where`/`orWhere` grouping: consecutive `where(...)` calls AND together into the current group; `orWhere(...)` starts a new group OR-ed against everything before it. `where(a).where(b).orWhere(c).where(d)` groups as `(a AND b) OR (c AND d)`. With no `orWhere` anywhere in the chain, this is invisible — output is a single flat `filter[...]` group, unchanged. As soon as one `orWhere` appears, every group (including the first) is nested under `filter[or][<groupIndex>]` (see the wire-format section below).
 
 Invalid inputs (`NaN`, negative `limit`/`offset`, `page` < 1, `perPage` < 1, an unrecognized operator string) throw `NgQlValidationError` synchronously at the chain-call site — before any request, without needing to subscribe.
 
@@ -148,6 +153,7 @@ resource.create(payload: Partial<TModel>, options?): Observable<TModel>
 resource.update(id, payload: Partial<TModel>, options?): Observable<TModel>   // PUT
 resource.patch(id, payload: Partial<TModel>, options?): Observable<TModel>   // PATCH
 resource.destroy(id, options?): Observable<void>                            // DELETE
+resource.getId(model: TModel): TId    // reads model[primaryKey ?? 'id']
 ```
 
 Every successful `create`/`update`/`patch`/`destroy` automatically invalidates cache entries owned by that resource's endpoint, plus any of the resource's configured `cacheTags`. Mutations are never cached themselves.
@@ -199,6 +205,9 @@ orderBy('createdAt', 'desc')        => sort=-createdAt
 limit(10)                           => page[size]=10
 offset(20)                          => page[offset]=20
 page(2, 20)                         => page[number]=2&page[size]=20
+
+where('status', 'published').orWhere('featured', true)
+                                     => filter[or][0][status]=published&filter[or][1][featured]=true
 ```
 
 Override globally via `provideNgQl({ querySerializer })` to match a different backend convention (OData, JSON:API, a bespoke dialect, ...).

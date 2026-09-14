@@ -15,7 +15,12 @@ export type { NgQlResourceConfig } from './lib/resource/resource-config';
 
 // Query builder
 export { NgQlQueryBuilder } from './lib/query/ng-ql-query-builder';
-export type { QueryOperator, QueryValue, NgQlQueryState } from './lib/models/query-types';
+export type {
+  QueryOperator,
+  QueryValue,
+  NgQlQueryState,
+  NgQlWhereConnector,
+} from './lib/models/query-types';
 export type { NgQlRequestDescription } from './lib/models/request-description';
 
 // Cache

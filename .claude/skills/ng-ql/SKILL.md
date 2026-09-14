@@ -67,9 +67,11 @@ export class PostResource extends NgQlResource<Post, number> {
 Do not "modernize" this constructor to `inject()` — plain constructor injection is required here
 so the parameter can be forwarded to `super(client, config)`.
 
-`NgQlResourceConfig` fields worth knowing: `endpoint` (required), `primaryKey`, `mapItem` /
-`mapCollection` / `mapPaginated` (override the global response adapter for just this resource),
-`buildUrl`, `requestOptions`, `headers`, `cacheTags`.
+`NgQlResourceConfig` fields worth knowing: `endpoint` (required), `primaryKey` (defaults to
+`'id'`; read by `resource.getId(model)` — use that instead of hardcoding `model.id` when a
+backend's identifier field isn't literally `id`), `mapItem` / `mapCollection` / `mapPaginated`
+(override the global response adapter for just this resource), `buildUrl`, `requestOptions`,
+`headers`, `cacheTags`.
 
 ## Task: build a query (Observable)
 
@@ -81,6 +83,8 @@ this.posts
   .query()
   .where('status', 'published')        // shorthand: (field, value) => equality
   .where('price', '>=', 100)            // explicit: (field, operator, value)
+  .where({ title: 'Hello', name: 'Test' }) // object form: every entry AND-ed together
+  .orWhere('featured', true)            // ORs a new group against everything before it
   .whereIn('categoryId', [1, 2])
   .whereNotIn('authorId', [9])
   .whereNull('deletedAt')
@@ -98,6 +102,12 @@ this.posts
 
 Operators for the explicit `where(field, operator, value)` form:
 `'=' | '!=' | '<>' | '>' | '>=' | '<' | '<=' | 'like' | 'not like'`.
+
+`where`/`orWhere` grouping: consecutive `where(...)` AND into the current group; `orWhere(...)`
+starts a new group OR-ed against everything before it —
+`where(a).where(b).orWhere(c).where(d)` groups as `(a AND b) OR (c AND d)`, matching Eloquent's
+`orWhere`. With no `orWhere` in the chain this is invisible (wire format is unchanged); once one
+appears, every group nests under `filter[or][<groupIndex>]`.
 
 Other execution methods: `.first(options?)` → `Observable<TModel | null>` (null, not a throw, on
 empty); `.paginate(page?, perPage?, options?)` → `Observable<NgQlPaginatedResponse<TModel>>`;
@@ -140,12 +150,12 @@ only applies to the `*Signal` methods, via `NgQlSignalRequestOptions` (`cache`, 
 
 ## Task: choose a cache policy
 
-| Policy | When to use it |
-| --- | --- |
-| `'no-store'` (default) | Data that must always be fresh; no caching behavior at all. |
-| `'cache-first'` | Rarely-changing reference data — show cached instantly, only fetch if missing/expired. |
-| `'network-first'` | Prefer freshness but tolerate showing stale data if the network fails. |
-| `'stale-while-revalidate'` | Instant perceived load — show cache immediately, refresh in the background. |
+| Policy                     | When to use it                                                                         |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `'no-store'` (default)     | Data that must always be fresh; no caching behavior at all.                            |
+| `'cache-first'`            | Rarely-changing reference data — show cached instantly, only fetch if missing/expired. |
+| `'network-first'`          | Prefer freshness but tolerate showing stale data if the network fails.                 |
+| `'stale-while-revalidate'` | Instant perceived load — show cache immediately, refresh in the background.            |
 
 Cache keys are deterministic (method + URL + normalized params/headers/body, order-independent),
 so equivalent query chains built in a different method-call order still hit the same cache entry.
@@ -155,14 +165,14 @@ Concurrent identical in-flight `GET`s are deduplicated regardless of policy.
 
 ```ts
 this.posts.create({ title: 'New post', status: 'draft' }).subscribe();
-this.posts.update(1, { title: 'Replaces the whole record' }).subscribe();  // PUT
-this.posts.patch(1, { status: 'published' }).subscribe();                  // PATCH
-this.posts.destroy(1).subscribe();                                         // DELETE
+this.posts.update(1, { title: 'Replaces the whole record' }).subscribe(); // PUT
+this.posts.patch(1, { status: 'published' }).subscribe(); // PATCH
+this.posts.destroy(1).subscribe(); // DELETE
 ```
 
 Every successful mutation **automatically invalidates** cache entries owned by that resource's
 endpoint plus its configured `cacheTags` — do not add manual `NgQlCacheService.invalidate*` calls
-after a mutation unless invalidating something in a *different* resource/tag.
+after a mutation unless invalidating something in a _different_ resource/tag.
 
 ## Task: test against ng-ql
 

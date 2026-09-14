@@ -42,16 +42,16 @@ bootstrapApplication(AppComponent, {
 
 `NgQlConfig`:
 
-| Option | Description |
-| --- | --- |
-| `baseUrl` | Prefix joined onto every relative resource endpoint (no duplicate/missing slashes). Absolute endpoints (`https://…`, `//…`) bypass it entirely. |
-| `defaultHeaders` | Headers merged into every request at the lowest precedence. |
-| `withCredentials` | Default `withCredentials` for every request. |
-| `defaultCachePolicy` | Default `NgQlCachePolicy` for Signal requests that don't specify one. Defaults to `'no-store'`. |
-| `defaultCacheTtl` | Default cache TTL (ms). Defaults to `60_000`. |
-| `querySerializer` | Custom `NgQlQuerySerializer`. Defaults to `DefaultNgQlQuerySerializer`. |
-| `responseAdapter` | Custom `NgQlResponseAdapter`. Defaults to `DefaultNgQlResponseAdapter`. |
-| `defaultRequestOptions` | Request options merged into every request. |
+| Option                  | Description                                                                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseUrl`               | Prefix joined onto every relative resource endpoint (no duplicate/missing slashes). Absolute endpoints (`https://…`, `//…`) bypass it entirely. |
+| `defaultHeaders`        | Headers merged into every request at the lowest precedence.                                                                                     |
+| `withCredentials`       | Default `withCredentials` for every request.                                                                                                    |
+| `defaultCachePolicy`    | Default `NgQlCachePolicy` for Signal requests that don't specify one. Defaults to `'no-store'`.                                                 |
+| `defaultCacheTtl`       | Default cache TTL (ms). Defaults to `60_000`.                                                                                                   |
+| `querySerializer`       | Custom `NgQlQuerySerializer`. Defaults to `DefaultNgQlQuerySerializer`.                                                                         |
+| `responseAdapter`       | Custom `NgQlResponseAdapter`. Defaults to `DefaultNgQlResponseAdapter`.                                                                         |
+| `defaultRequestOptions` | Request options merged into every request.                                                                                                      |
 
 ## Defining a resource
 
@@ -90,13 +90,16 @@ this.posts
 
 this.posts.first().subscribe((post) => console.log(post)); // null if empty
 this.posts.find(42).subscribe((post) => console.log(post));
-this.posts.query().paginate(2, 20).subscribe((page) => console.log(page.data, page.meta));
+this.posts
+  .query()
+  .paginate(2, 20)
+  .subscribe((page) => console.log(page.data, page.meta));
 ```
 
 ## Signal API
 
 ```ts
-@Component({ /* ... */ })
+@Component({/* ... */})
 export class PostListComponent {
   private readonly posts = inject(PostResource);
 
@@ -121,11 +124,11 @@ protected readonly page = this.posts.query().paginateSignal(1, 10);
 
 ## Caching policies
 
-| Policy | Behavior |
-| --- | --- |
-| `no-store` | Always executes the request; never reads or writes the cache. |
-| `cache-first` | Returns valid cached data immediately if present; otherwise fetches. |
-| `network-first` | Fetches fresh data first; falls back to a cached value if the request fails. |
+| Policy                   | Behavior                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| `no-store`               | Always executes the request; never reads or writes the cache.                  |
+| `cache-first`            | Returns valid cached data immediately if present; otherwise fetches.           |
+| `network-first`          | Fetches fresh data first; falls back to a cached value if the request fails.   |
 | `stale-while-revalidate` | Returns cached data immediately (if any) while revalidating in the background. |
 
 Concurrent, identical in-flight `GET` requests are always deduplicated into a single HTTP call, regardless of policy.
@@ -182,6 +185,9 @@ orderBy('createdAt', 'desc')        => sort=-createdAt
 limit(10)                           => page[size]=10
 offset(20)                          => page[offset]=20
 page(2, 20)                         => page[number]=2&page[size]=20
+
+where('status', 'published').orWhere('featured', true)
+                                     => filter[or][0][status]=published&filter[or][1][featured]=true
 ```
 
 The default response adapter accepts a raw array, a `{ data: [...] }` collection, a `{ data: {...} }` or raw item, and a paginated `{ data, meta, links }` envelope (snake_case or camelCase meta keys).
@@ -206,7 +212,12 @@ import { TestBed } from '@angular/core/testing';
 import { provideNgQl } from 'ng-ql';
 
 TestBed.configureTestingModule({
-  providers: [provideHttpClient(), provideHttpClientTesting(), provideNgQl({ baseUrl: '/api' }), PostResource],
+  providers: [
+    provideHttpClient(),
+    provideHttpClientTesting(),
+    provideNgQl({ baseUrl: '/api' }),
+    PostResource,
+  ],
 });
 
 const httpMock = TestBed.inject(HttpTestingController);
@@ -231,29 +242,55 @@ If you use [Claude Code](https://claude.com/claude-code), there's also a ready-m
 
 ## API reference
 
-| Export | Kind |
-| --- | --- |
-| `provideNgQl(config)` | Function — registers global configuration. |
-| `NgQlClient` | Injectable — low-level HTTP execution engine. |
-| `NgQlResource<TModel, TId>` | Abstract class — typed CRUD + query façade for one endpoint. |
-| `NgQlQueryBuilder<TModel, TId>` | Class — immutable fluent query builder. |
-| `NgQlCacheService` | Injectable — Signal-request cache. |
-| `NgQlValidationError` | Error class — thrown for invalid builder input before any request. |
-| `DefaultNgQlQuerySerializer` / `NgQlQuerySerializer` | Query → `HttpParams` serialization. |
-| `DefaultNgQlResponseAdapter` / `NgQlResponseAdapter` | Response → model normalization. |
-| `NgQlConfig`, `NgQlResourceConfig`, `NgQlRequestOptions`, `NgQlSignalRequestOptions` | Configuration interfaces. |
-| `NgQlRequestState<T>`, `NgQlPaginatedRequestState<T>` | Signal-backed request state. |
-| `NgQlPaginationMeta`, `NgQlPaginationLinks`, `NgQlPaginatedResponse<T>` | Normalized pagination shapes. |
-| `NgQlRequestDescription` | Inspectable request shape from `toRequest()`. |
-| `NgQlCachePolicy` | `'no-store' \| 'cache-first' \| 'network-first' \| 'stale-while-revalidate'`. |
-| `QueryOperator`, `QueryValue`, `NgQlQueryState` | Query builder primitives. |
+| Export                                                                               | Kind                                                                          |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `provideNgQl(config)`                                                                | Function — registers global configuration.                                    |
+| `NgQlClient`                                                                         | Injectable — low-level HTTP execution engine.                                 |
+| `NgQlResource<TModel, TId>`                                                          | Abstract class — typed CRUD + query façade for one endpoint.                  |
+| `NgQlQueryBuilder<TModel, TId>`                                                      | Class — immutable fluent query builder.                                       |
+| `NgQlCacheService`                                                                   | Injectable — Signal-request cache.                                            |
+| `NgQlValidationError`                                                                | Error class — thrown for invalid builder input before any request.            |
+| `DefaultNgQlQuerySerializer` / `NgQlQuerySerializer`                                 | Query → `HttpParams` serialization.                                           |
+| `DefaultNgQlResponseAdapter` / `NgQlResponseAdapter`                                 | Response → model normalization.                                               |
+| `NgQlConfig`, `NgQlResourceConfig`, `NgQlRequestOptions`, `NgQlSignalRequestOptions` | Configuration interfaces.                                                     |
+| `NgQlRequestState<T>`, `NgQlPaginatedRequestState<T>`                                | Signal-backed request state.                                                  |
+| `NgQlPaginationMeta`, `NgQlPaginationLinks`, `NgQlPaginatedResponse<T>`              | Normalized pagination shapes.                                                 |
+| `NgQlRequestDescription`                                                             | Inspectable request shape from `toRequest()`.                                 |
+| `NgQlCachePolicy`                                                                    | `'no-store' \| 'cache-first' \| 'network-first' \| 'stale-while-revalidate'`. |
+| `QueryOperator`, `QueryValue`, `NgQlQueryState`                                      | Query builder primitives.                                                     |
 
 ### `NgQlQueryBuilder<TModel, TId>`
 
-`where`, `whereIn`, `whereNotIn`, `whereNull`, `whereNotNull`, `whereBetween`, `when`, `select`, `with`, `withQuery`, `append`, `orderBy`, `latest`, `oldest`, `limit`, `offset`, `page`, `perPage`, `setHeaders`, `setOptions` — all immutable chain methods.
+`where`, `orWhere`, `whereIn`, `whereNotIn`, `whereNull`, `whereNotNull`, `whereBetween`, `when`, `select`, `with`, `withQuery`, `append`, `orderBy`, `latest`, `oldest`, `limit`, `offset`, `page`, `perPage`, `setHeaders`, `setOptions` — all immutable chain methods.
+
+`where`/`orWhere` also accept an object of equality conditions instead of `(field, value)`:
+
+```ts
+// Both entries are AND-ed together:
+this.posts.query().where({ title: 'Hello', status: 'published' });
+
+// orWhere() ORs the whole group against what came before it. Consecutive
+// where() calls AND within a group; orWhere() starts a new group — i.e.
+// where(a).where(b).orWhere(c).where(d)  =>  (a AND b) OR (c AND d):
+this.posts.query().where('status', 'published').where('featured', true).orWhere('role', 'admin');
+```
+
+The default serializer nests every group under `filter[or][<groupIndex>]` as soon as any `orWhere` appears in the chain (see the wire-format table above); with no `orWhere` at all, output is unchanged from a single flat `filter[...]` group.
 
 `get`, `first`, `paginate`, `find` — Observable execution. `getSignal`, `firstSignal`, `paginateSignal` — Signal execution. `toUrl`, `toQueryParams`, `toRequest` — inspection, no request performed.
 
 ### `NgQlResource<TModel, TId>`
 
-`query`, `all`/`allSignal`, `find`/`findSignal`, `first`/`firstSignal`, `create`, `update`, `patch`, `destroy`.
+`query`, `all`/`allSignal`, `find`/`findSignal`, `first`/`firstSignal`, `create`, `update`, `patch`, `destroy`, `getId`.
+
+`getId(model)` reads the identifier off a model instance, honoring a custom `primaryKey` from `NgQlResourceConfig` (defaults to `'id'`) — useful when a backend doesn't call its identifier field `id`:
+
+```ts
+class WidgetResource extends NgQlResource<Widget> {
+  constructor(client: NgQlClient) {
+    super(client, { endpoint: 'widgets', primaryKey: 'uuid' });
+  }
+}
+
+this.widgets.getId(widget); // reads widget.uuid
+```

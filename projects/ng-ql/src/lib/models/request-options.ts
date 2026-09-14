@@ -6,8 +6,7 @@ import type { NgQlCachePolicy } from './cache-policy';
 export interface NgQlRequestOptions {
   readonly headers?: HttpHeaders | Record<string, string | string[]>;
   readonly params?:
-    | HttpParams
-    | Record<string, QueryValue | readonly QueryValue[] | null | undefined>;
+    HttpParams | Record<string, QueryValue | readonly QueryValue[] | null | undefined>;
   readonly withCredentials?: boolean;
   readonly context?: HttpContext;
   readonly observe?: 'body';

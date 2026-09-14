@@ -1,5 +1,10 @@
 import { HttpParams } from '@angular/common/http';
-import type { NgQlQueryState, QueryOperator, QueryValue } from '../models/query-types';
+import type {
+  NgQlQueryState,
+  NgQlWhereCondition,
+  QueryOperator,
+  QueryValue,
+} from '../models/query-types';
 import type { NgQlQuerySerializer } from './query-serializer';
 import { NgQlParamCodec } from './ng-ql-param-codec';
 
@@ -22,6 +27,56 @@ function stringify(value: QueryValue): string {
 }
 
 /**
+ * Splits a flat, chain-ordered where list into AND-groups, breaking at every
+ * `'or'` connector (that condition starts a new group; consecutive `'and'`
+ * conditions join the current group). See {@link NgQlQueryState}.
+ */
+function groupWheres(wheres: readonly NgQlWhereCondition[]): NgQlWhereCondition[][] {
+  const groups: NgQlWhereCondition[][] = [];
+  for (const where of wheres) {
+    if (where.connector === 'or' || groups.length === 0) {
+      groups.push([where]);
+    } else {
+      groups[groups.length - 1].push(where);
+    }
+  }
+  return groups;
+}
+
+function sortByField(wheres: readonly NgQlWhereCondition[]): NgQlWhereCondition[] {
+  return [...wheres].sort((a, b) => a.field.localeCompare(b.field));
+}
+
+function appendWhere(params: HttpParams, prefix: string, where: NgQlWhereCondition): HttpParams {
+  switch (where.kind) {
+    case 'basic': {
+      const suffix = OPERATOR_SUFFIX[where.operator] ?? '';
+      const key = suffix ? `${prefix}[${where.field}][${suffix}]` : `${prefix}[${where.field}]`;
+      return params.append(key, stringify(where.value));
+    }
+    case 'in': {
+      const key = where.negate
+        ? `${prefix}[${where.field}][not_in][]`
+        : `${prefix}[${where.field}][]`;
+      for (const value of where.values) {
+        params = params.append(key, stringify(value));
+      }
+      return params;
+    }
+    case 'null': {
+      const key = where.negate ? `${prefix}[${where.field}][ne]` : `${prefix}[${where.field}]`;
+      return params.append(key, 'null');
+    }
+    case 'between': {
+      return params.append(
+        `${prefix}[${where.field}][between]`,
+        `${stringify(where.range[0])},${stringify(where.range[1])}`,
+      );
+    }
+  }
+}
+
+/**
  * The default {@link NgQlQuerySerializer}, using a widely-adopted REST filtering
  * convention:
  *
@@ -41,44 +96,36 @@ function stringify(value: QueryValue): string {
  * page(2, 20)                         => page[number]=2&page[size]=20
  * ```
  *
- * Values are appended in a stable, deterministic order so that equivalent
- * query builders always serialize identically regardless of the order
- * chain methods were called in.
+ * `where(a).where(b)` (no `orWhere` anywhere in the chain) is a single AND
+ * group and serializes exactly as above, in a stable field-sorted order so
+ * equivalent query builders always serialize identically regardless of the
+ * order chain methods were called in.
+ *
+ * Once `orWhere` appears anywhere in the chain, the whole where-list is
+ * partitioned into AND-groups split at each `orWhere` (see
+ * {@link NgQlQueryState}) and every group — including the first — is nested
+ * under `filter[or][<groupIndex>]` instead of `filter`:
+ *
+ * ```text
+ * where('status', 'published').orWhere('featured', true)
+ *   => filter[or][0][status]=published&filter[or][1][featured]=true
+ * ```
  */
 export class DefaultNgQlQuerySerializer implements NgQlQuerySerializer {
   serialize(state: NgQlQueryState): HttpParams {
     let params = new HttpParams({ encoder: new NgQlParamCodec() });
 
-    for (const where of [...state.wheres].sort((a, b) => a.field.localeCompare(b.field))) {
-      switch (where.kind) {
-        case 'basic': {
-          const suffix = OPERATOR_SUFFIX[where.operator] ?? '';
-          const key = suffix ? `filter[${where.field}][${suffix}]` : `filter[${where.field}]`;
-          params = params.append(key, stringify(where.value));
-          break;
-        }
-        case 'in': {
-          const key = where.negate
-            ? `filter[${where.field}][not_in][]`
-            : `filter[${where.field}][]`;
-          for (const value of where.values) {
-            params = params.append(key, stringify(value));
-          }
-          break;
-        }
-        case 'null': {
-          const key = where.negate ? `filter[${where.field}][ne]` : `filter[${where.field}]`;
-          params = params.append(key, 'null');
-          break;
-        }
-        case 'between': {
-          params = params.append(
-            `filter[${where.field}][between]`,
-            `${stringify(where.range[0])},${stringify(where.range[1])}`,
-          );
-          break;
-        }
+    const groups = groupWheres(state.wheres);
+    if (groups.length <= 1) {
+      for (const where of sortByField(groups[0] ?? [])) {
+        params = appendWhere(params, 'filter', where);
       }
+    } else {
+      groups.forEach((group, index) => {
+        for (const where of sortByField(group)) {
+          params = appendWhere(params, `filter[or][${index}]`, where);
+        }
+      });
     }
 
     if (state.selects.length > 0) {

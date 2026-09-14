@@ -64,6 +64,15 @@ export abstract class NgQlResource<TModel, TId = string | number> {
     return new NgQlQueryBuilder<TModel, TId>(this.context);
   }
 
+  /**
+   * Reads this resource's identifier off a model instance, honoring a custom
+   * `primaryKey` from {@link NgQlResourceConfig} (defaults to `'id'`).
+   */
+  getId(model: TModel): TId {
+    const key = this.resourceConfig.primaryKey ?? 'id';
+    return (model as unknown as Record<string, unknown>)[key] as TId;
+  }
+
   all(options?: NgQlRequestOptions): Observable<TModel[]> {
     return this.query().get(options);
   }

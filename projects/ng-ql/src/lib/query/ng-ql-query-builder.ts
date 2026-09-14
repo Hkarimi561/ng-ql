@@ -10,6 +10,7 @@ import type {
   NgQlQueryState,
   NgQlSortClause,
   NgQlWhereCondition,
+  NgQlWhereConnector,
   QueryOperator,
   QueryValue,
   SortDirection,
@@ -75,36 +76,83 @@ export class NgQlQueryBuilder<TModel, TId = string | number> {
   // Chain methods
   // ---------------------------------------------------------------------
 
+  /** Adds one equality condition per entry, AND-ed with each other and with the existing chain. */
+  where(conditions: Record<string, QueryValue>): NgQlQueryBuilder<TModel, TId>;
+  /** Shorthand `where(field, value)` for equality, or explicit `where(field, operator, value)`. */
   where(
     field: string,
     operatorOrValue: QueryValue | QueryOperator,
     value?: QueryValue,
+  ): NgQlQueryBuilder<TModel, TId>;
+  where(
+    fieldOrConditions: string | Record<string, QueryValue>,
+    operatorOrValue?: QueryValue | QueryOperator,
+    value?: QueryValue,
   ): NgQlQueryBuilder<TModel, TId> {
-    const condition: NgQlWhereCondition =
-      value === undefined
-        ? { kind: 'basic', field, operator: '=', value: operatorOrValue as QueryValue }
-        : { kind: 'basic', field, operator: this.requireOperator(operatorOrValue), value };
+    if (typeof fieldOrConditions !== 'string') {
+      return this.whereEntries(fieldOrConditions, 'and');
+    }
+    return this.addBasicWhere(
+      fieldOrConditions,
+      operatorOrValue as QueryValue | QueryOperator,
+      value,
+      'and',
+    );
+  }
 
-    return this.fork({ ...this.state, wheres: [...this.state.wheres, condition] });
+  /** Adds one equality condition per entry, AND-ed with each other, OR-ed with the existing chain. */
+  orWhere(conditions: Record<string, QueryValue>): NgQlQueryBuilder<TModel, TId>;
+  /** Shorthand `orWhere(field, value)` for equality, or explicit `orWhere(field, operator, value)`. */
+  orWhere(
+    field: string,
+    operatorOrValue: QueryValue | QueryOperator,
+    value?: QueryValue,
+  ): NgQlQueryBuilder<TModel, TId>;
+  orWhere(
+    fieldOrConditions: string | Record<string, QueryValue>,
+    operatorOrValue?: QueryValue | QueryOperator,
+    value?: QueryValue,
+  ): NgQlQueryBuilder<TModel, TId> {
+    if (typeof fieldOrConditions !== 'string') {
+      return this.whereEntries(fieldOrConditions, 'or');
+    }
+    return this.addBasicWhere(
+      fieldOrConditions,
+      operatorOrValue as QueryValue | QueryOperator,
+      value,
+      'or',
+    );
   }
 
   whereIn(field: string, values: readonly QueryValue[]): NgQlQueryBuilder<TModel, TId> {
-    const condition: NgQlWhereCondition = { kind: 'in', field, values: [...values], negate: false };
+    const condition: NgQlWhereCondition = {
+      kind: 'in',
+      field,
+      values: [...values],
+      negate: false,
+      connector: 'and',
+    };
     return this.fork({ ...this.state, wheres: [...this.state.wheres, condition] });
   }
 
   whereNotIn(field: string, values: readonly QueryValue[]): NgQlQueryBuilder<TModel, TId> {
-    const condition: NgQlWhereCondition = { kind: 'in', field, values: [...values], negate: true };
+    const condition: NgQlWhereCondition = {
+      kind: 'in',
+      field,
+      values: [...values],
+      negate: true,
+      connector: 'and',
+    };
     return this.fork({ ...this.state, wheres: [...this.state.wheres, condition] });
   }
 
   whereNull(field: string): NgQlQueryBuilder<TModel, TId> {
-    const condition: NgQlWhereCondition = { kind: 'null', field, negate: false };
+    const condition: NgQlWhereCondition = { kind: 'null', field, negate: false, connector: 'and' };
     return this.fork({ ...this.state, wheres: [...this.state.wheres, condition] });
   }
 
   whereNotNull(field: string): NgQlQueryBuilder<TModel, TId> {
-    const condition: NgQlWhereCondition = { kind: 'null', field, negate: true };
+    const condition: NgQlWhereCondition = { kind: 'null', field, negate: true, connector: 'and' };
     return this.fork({ ...this.state, wheres: [...this.state.wheres, condition] });
   }
 
@@ -112,7 +160,12 @@ export class NgQlQueryBuilder<TModel, TId = string | number> {
     field: string,
     range: readonly [QueryValue, QueryValue],
   ): NgQlQueryBuilder<TModel, TId> {
-    const condition: NgQlWhereCondition = { kind: 'between', field, range: [range[0], range[1]] };
+    const condition: NgQlWhereCondition = {
+      kind: 'between',
+      field,
+      range: [range[0], range[1]],
+      connector: 'and',
+    };
     return this.fork({ ...this.state, wheres: [...this.state.wheres, condition] });
   }
 
@@ -364,6 +417,42 @@ export class NgQlQueryBuilder<TModel, TId = string | number> {
   private requireOperator(value: QueryValue | QueryOperator): QueryOperator {
     if (isQueryOperator(value)) return value;
     throw new NgQlValidationError(`ng-ql: "${String(value)}" is not a valid query operator.`);
+  }
+
+  private addBasicWhere(
+    field: string,
+    operatorOrValue: QueryValue | QueryOperator,
+    value: QueryValue | undefined,
+    connector: NgQlWhereConnector,
+  ): NgQlQueryBuilder<TModel, TId> {
+    const condition: NgQlWhereCondition =
+      value === undefined
+        ? { kind: 'basic', field, operator: '=', value: operatorOrValue as QueryValue, connector }
+        : {
+            kind: 'basic',
+            field,
+            operator: this.requireOperator(operatorOrValue),
+            value,
+            connector,
+          };
+    return this.fork({ ...this.state, wheres: [...this.state.wheres, condition] });
+  }
+
+  /** Applies each entry of an object-form `where`/`orWhere` as an equality condition. */
+  private whereEntries(
+    conditions: Record<string, QueryValue>,
+    connector: NgQlWhereConnector,
+  ): NgQlQueryBuilder<TModel, TId> {
+    const additions: NgQlWhereCondition[] = Object.entries(conditions).map(
+      ([field, value], index) => ({
+        kind: 'basic',
+        field,
+        operator: '=',
+        value,
+        connector: index === 0 ? connector : 'and',
+      }),
+    );
+    return this.fork({ ...this.state, wheres: [...this.state.wheres, ...additions] });
   }
 
   private mergeExtraParams(

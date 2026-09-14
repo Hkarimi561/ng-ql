@@ -7,7 +7,7 @@ export interface NgQlResourceConfig<TModel, TId = string | number> {
   /** The resource endpoint, relative to the global `baseUrl` (or absolute). */
   readonly endpoint: string;
 
-  /** Name of the model's primary key property. Defaults to `'id'`. */
+  /** Name of the model's primary key property, read by {@link NgQlResource#getId}. Defaults to `'id'`. */
   readonly primaryKey?: string;
 
   /** Overrides how a single-item response is decoded. Falls back to the global response adapter. */

@@ -3,9 +3,7 @@ import type { QueryValue } from '../models/query-types';
 import { NgQlParamCodec } from '../serializers/ng-ql-param-codec';
 
 export type ParamsInput =
-  | HttpParams
-  | Record<string, QueryValue | readonly QueryValue[] | null | undefined>
-  | undefined;
+  HttpParams | Record<string, QueryValue | readonly QueryValue[] | null | undefined> | undefined;
 
 function toHttpParams(input: ParamsInput): HttpParams {
   if (input instanceof HttpParams) return input;

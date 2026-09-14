@@ -8,7 +8,7 @@ import { provideNgQl } from '../config/provide-ng-ql';
 import { NgQlClient } from '../client/ng-ql-client';
 import { NgQlCacheService } from '../cache/ng-ql-cache.service';
 import { NgQlValidationError } from '../errors/ng-ql-validation-error';
-import { PostResource } from '../testing/test-post-resource';
+import { PostResource, WidgetResource } from '../testing/test-post-resource';
 
 describe('NgQlResource + NgQlQueryBuilder (integration)', () => {
   let httpMock: HttpTestingController;
@@ -88,6 +88,40 @@ describe('NgQlResource + NgQlQueryBuilder (integration)', () => {
     expect(params.get('filter[deletedAt]')).toBe('null');
     expect(params.get('filter[publishedAt][ne]')).toBe('null');
     expect(params.get('filter[price][between]')).toBe('10,20');
+  });
+
+  it('accepts an object form of where(), AND-ing every entry together', () => {
+    const params = posts.query().where({ title: 'Hello', status: 'published' }).toQueryParams();
+    expect(params.get('filter[title]')).toBe('Hello');
+    expect(params.get('filter[status]')).toBe('published');
+    // No orWhere was used, so it stays a single flat group (no filter[or][...]).
+    expect(params.has('filter[or][0][title]')).toBe(false);
+  });
+
+  it('orWhere() ORs a new condition against the existing chain', () => {
+    const url = posts.query().where('status', 'published').orWhere('featured', true).toUrl();
+    expect(url).toContain('filter[or][0][status]=published');
+    expect(url).toContain('filter[or][1][featured]=true');
+  });
+
+  it('orWhere() accepts an object form too, AND-ing its own entries', () => {
+    const params = posts
+      .query()
+      .where('status', 'published')
+      .orWhere({ title: 'Hello', authorId: 1 })
+      .toQueryParams();
+
+    expect(params.get('filter[or][0][status]')).toBe('published');
+    expect(params.get('filter[or][1][title]')).toBe('Hello');
+    expect(params.get('filter[or][1][authorId]')).toBe('1');
+  });
+
+  it('does not mutate the receiver when chaining orWhere()', () => {
+    const base = posts.query().where('status', 'published');
+    const withOr = base.orWhere('featured', true);
+    expect(base.toUrl()).not.toContain('filter[or]');
+    expect(withOr.toUrl()).toContain('filter[or]');
+    expect(base).not.toBe(withOr);
   });
 
   it('applies when() only if the condition is true, without mutating the receiver', () => {
@@ -304,5 +338,18 @@ describe('NgQlResource + NgQlQueryBuilder (integration)', () => {
     await promise;
     // A mutation must never be stored as a readable cache entry under any key.
     expect(cache.get('POST::/api/posts')).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // getId()
+  // -----------------------------------------------------------------------
+
+  it('getId() reads the "id" property by default', () => {
+    expect(posts.getId({ id: 42, title: 'A' })).toBe(42);
+  });
+
+  it('getId() honors a custom primaryKey from NgQlResourceConfig', () => {
+    const widgets = new WidgetResource(TestBed.inject(NgQlClient));
+    expect(widgets.getId({ uuid: 'abc-123', name: 'Gadget' })).toBe('abc-123');
   });
 });
