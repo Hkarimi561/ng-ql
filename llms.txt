@@ -1,0 +1,241 @@
+# ng-ql
+
+> An Eloquent-inspired HTTP request and query builder for Angular. It is **not an ORM** — it manages no database, no models, no identity map. It builds, serializes, executes, types, caches, and exposes HTTP requests against REST APIs using Angular `HttpClient`, Signals, and RxJS.
+
+Runtime dependencies: `@angular/core`, `@angular/common`, `rxjs` only. Angular 21+.
+
+## Install
+
+```bash
+npm install ng-ql
+```
+
+## Provider setup
+
+```ts
+import { provideHttpClient } from '@angular/common/http';
+import { provideNgQl } from 'ng-ql';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideHttpClient(),
+    provideNgQl({
+      baseUrl: 'https://api.example.com/v1',
+      defaultHeaders: { Accept: 'application/json' },
+      withCredentials: false,
+      defaultCachePolicy: 'no-store',   // default for Signal reads that don't specify one
+      defaultCacheTtl: 60_000,          // ms
+      // querySerializer: custom NgQlQuerySerializer   (optional)
+      // responseAdapter: custom NgQlResponseAdapter   (optional)
+    }),
+  ],
+});
+```
+
+`baseUrl` is joined onto relative endpoints without duplicate/missing slashes. An endpoint starting with `http://`, `https://`, or `//` is treated as absolute and used as-is (never prefixed).
+
+## Defining a resource
+
+A model is a plain `interface` — no base class, no decorators. A resource extends `NgQlResource<TModel, TId>` and is injectable like any other service:
+
+```ts
+export interface Post {
+  id: number;
+  title: string;
+  status: 'draft' | 'published' | 'archived';
+}
+
+@Injectable({ providedIn: 'root' })
+export class PostResource extends NgQlResource<Post, number> {
+  constructor(client: NgQlClient) {
+    super(client, { endpoint: 'posts', cacheTags: ['posts'] });
+  }
+}
+```
+
+`NgQlResourceConfig` fields: `endpoint` (required), `primaryKey`, `mapItem`/`mapCollection`/`mapPaginated` (per-resource response overrides), `buildUrl`, `requestOptions`, `headers`, `cacheTags`.
+
+IMPORTANT: `NgQlResource`'s constructor takes `(client: NgQlClient, config: NgQlResourceConfig<TModel, TId>)` via plain constructor injection (not `inject()`), specifically so subclasses can pass `client` through `super(...)`. Do not "fix" this to use `inject()` — it is intentional.
+
+## Query builder — immutable, no request until executed
+
+Every chain method on `NgQlQueryBuilder<TModel, TId>` returns a **new** instance; nothing is ever mutated. **No HTTP request is made** until an execution method (`get`, `first`, `paginate`, `find`, or a `*Signal` twin) is called.
+
+```ts
+this.posts
+  .query()
+  .where('status', 'published')          // shorthand: field, value  => equality
+  .where('price', '>=', 100)              // explicit operator: field, operator, value
+  .whereIn('categoryId', [1, 2])
+  .whereNotIn('authorId', [9])
+  .whereNull('deletedAt')
+  .whereNotNull('publishedAt')
+  .whereBetween('price', [10, 20])
+  .when(someCondition, (q) => q.where('featured', true))
+  .select(['id', 'title'])
+  .with('author')                          // or with(['author', 'comments'])
+  .withQuery({ custom: 'param' })          // alias: append(...)
+  .orderBy('createdAt', 'desc')            // or latest('createdAt') / oldest('createdAt')
+  .limit(10)
+  .offset(20)
+  .page(2, 20)                             // page number, per-page size
+  .perPage(20)
+  .setHeaders({ 'X-Foo': 'bar' })
+  .setOptions({ withCredentials: true })
+  .get()                                   // Observable<TModel[]>
+  .subscribe((posts) => console.log(posts));
+```
+
+Supported operators for the explicit `where(field, operator, value)` form: `'=' | '!=' | '<>' | '>' | '>=' | '<' | '<=' | 'like' | 'not like'`.
+
+Invalid inputs (`NaN`, negative `limit`/`offset`, `page` < 1, `perPage` < 1, an unrecognized operator string) throw `NgQlValidationError` synchronously at the chain-call site — before any request, without needing to subscribe.
+
+### Observable execution methods
+
+```ts
+query.get(options?)                          // Observable<TModel[]>
+query.first(options?)                        // Observable<TModel | null>  (null if empty)
+query.paginate(page?, perPage?, options?)    // Observable<NgQlPaginatedResponse<TModel>>
+query.find(id, options?)                     // Observable<TModel | null>
+```
+
+### Signal execution methods
+
+Must be called from an injection context (a field initializer, a constructor, or inside `runInInjectionContext(...)`) because they call `inject(DestroyRef)` internally for lifecycle-safe cleanup.
+
+```ts
+query.getSignal(options?)                        // NgQlRequestState<TModel[]>
+query.firstSignal(options?)                      // NgQlRequestState<TModel | null>
+query.paginateSignal(page?, perPage?, options?)  // NgQlPaginatedRequestState<TModel>
+```
+
+```ts
+protected readonly postsState = this.posts
+  .query()
+  .where('status', 'published')
+  .orderBy('createdAt', 'desc')
+  .getSignal({ cache: 'stale-while-revalidate', cacheTtl: 30_000 });
+
+// postsState.data() / .loading() / .error() / .status() / .hasData()
+// postsState.refresh()    -- re-executes, bypassing cache-first shortcut, still writes cache
+// postsState.invalidate() -- drops the cache entry, resets state to 'idle'
+
+protected readonly postsPage = this.posts.query().paginateSignal(1, 10);
+// postsPage.data() / .meta() / .links() / .setPage(2) / .setPerPage(25)
+```
+
+`status` is one of `'idle' | 'loading' | 'success' | 'error'`. All public signals are read-only.
+
+### Inspection methods (never trigger a request)
+
+```ts
+query.toUrl(): string
+query.toQueryParams(): HttpParams
+query.toRequest(): NgQlRequestDescription   // { method, url, params, headers, withCredentials?, body? }
+```
+
+## Resource convenience methods
+
+```ts
+resource.query(): NgQlQueryBuilder<TModel, TId>
+resource.all(options?): Observable<TModel[]>
+resource.allSignal(options?): NgQlRequestState<TModel[]>
+resource.find(id, options?): Observable<TModel | null>
+resource.findSignal(id, options?): NgQlRequestState<TModel | null>
+resource.first(options?): Observable<TModel | null>
+resource.firstSignal(options?): NgQlRequestState<TModel | null>
+resource.create(payload: Partial<TModel>, options?): Observable<TModel>
+resource.update(id, payload: Partial<TModel>, options?): Observable<TModel>   // PUT
+resource.patch(id, payload: Partial<TModel>, options?): Observable<TModel>   // PATCH
+resource.destroy(id, options?): Observable<void>                            // DELETE
+```
+
+Every successful `create`/`update`/`patch`/`destroy` automatically invalidates cache entries owned by that resource's endpoint, plus any of the resource's configured `cacheTags`. Mutations are never cached themselves.
+
+## Caching policies (`NgQlCachePolicy`)
+
+Only relevant to the `*Signal` methods (`NgQlSignalRequestOptions` extends `NgQlRequestOptions` with `cache`, `cacheTtl`, `cacheKey`, `cacheTags`). Plain Observable methods always hit the network.
+
+| Policy | Behavior |
+| --- | --- |
+| `'no-store'` | Always executes the request; never reads or writes the cache. |
+| `'cache-first'` | Returns valid cached data immediately if present; otherwise fetches. |
+| `'network-first'` | Fetches fresh data first; falls back to a cached value if the request fails. |
+| `'stale-while-revalidate'` | Returns cached data immediately (if any) while revalidating in the background. |
+
+Cache keys are deterministic (method + resolved URL + normalized, order-independent params/headers/body), so equivalent query builders always hit the same cache entry regardless of chain order. Concurrent identical in-flight `GET`s are always deduplicated into one HTTP call, regardless of policy.
+
+`NgQlCacheService` (injectable, instance-scoped — never global/static) also exposes `invalidateKey(key)`, `invalidateTag(tag)`, `invalidateEndpoint(endpoint)`, `clear()`.
+
+## Header precedence (ascending — later wins)
+
+1. `NgQlConfig.defaultHeaders`
+2. `NgQlResourceConfig.headers`
+3. `NgQlQueryBuilder#setHeaders(...)`
+4. Per-call `options.headers`
+
+## Response shapes the default adapter understands
+
+- Raw array: `[{...}, {...}]`
+- `{ data: [{...}, {...}] }`
+- `{ data: {...} }` or a raw item object
+- Paginated: `{ data: [...], meta: { current_page | currentPage, last_page | lastPage, per_page | perPage, total }, links?: { first, last, prev, next } }`
+
+Override globally via `provideNgQl({ responseAdapter })`, or per-resource via `NgQlResourceConfig.mapItem/mapCollection/mapPaginated`.
+
+## Default query-serializer wire format
+
+```text
+where('status', 'published')        => filter[status]=published
+where('price', '>=', 100)           => filter[price][gte]=100
+whereIn('categoryId', [1, 2])       => filter[categoryId][]=1&filter[categoryId][]=2
+whereNotIn('categoryId', [1, 2])    => filter[categoryId][not_in][]=1&filter[categoryId][not_in][]=2
+whereNull('deletedAt')              => filter[deletedAt]=null
+whereNotNull('deletedAt')           => filter[deletedAt][ne]=null
+whereBetween('price', [10, 20])     => filter[price][between]=10,20
+select(['id', 'title'])             => fields=id,title
+with('author')                      => include=author
+orderBy('createdAt', 'desc')        => sort=-createdAt
+limit(10)                           => page[size]=10
+offset(20)                          => page[offset]=20
+page(2, 20)                         => page[number]=2&page[size]=20
+```
+
+Override globally via `provideNgQl({ querySerializer })` to match a different backend convention (OData, JSON:API, a bespoke dialect, ...).
+
+## Testing (HttpTestingController)
+
+```ts
+TestBed.configureTestingModule({
+  providers: [provideHttpClient(), provideHttpClientTesting(), provideNgQl({ baseUrl: '/api' }), PostResource],
+});
+const httpMock = TestBed.inject(HttpTestingController);
+const posts = TestBed.inject(PostResource);
+
+posts.all().subscribe();
+httpMock.expectOne('/api/posts').flush([{ id: 1, title: 'Hello' }]);
+httpMock.verify();
+```
+
+For Signal methods, call them inside `TestBed.runInInjectionContext(() => ...)`.
+
+## SSR
+
+No `window`, `document`, `localStorage`, or other browser globals anywhere in the library. Safe to instantiate once per server-rendered request.
+
+## Common mistakes to avoid when generating code against ng-ql
+
+- Do not treat `NgQlResource` as an ORM entity/model — it has no identity map, no change tracking, no `.save()`. It is only a typed façade over HTTP.
+- Do not call `getSignal`/`firstSignal`/`paginateSignal`/`allSignal`/`findSignal` outside an injection context (they'll throw `NG0203`). Call them as field initializers or inside `runInInjectionContext`.
+- Do not expect a plain `get()`/`first()`/`paginate()` (Observable) call to use the cache — only the `*Signal` methods cache, via `NgQlSignalRequestOptions`.
+- Do not mutate a query builder in place or expect chain methods to affect the receiver — always use the returned value: `const q2 = q1.where(...)`, not `q1.where(...); use(q1)`.
+- Do not assume `first()` throws on an empty result — it resolves to `null`.
+- Do not hand-roll query strings — use the builder's `where*`/`select`/`with`/`orderBy`/`page` methods so the configured `NgQlQuerySerializer` stays in control of the wire format.
+
+## Full reference
+
+README (installation, full API table, custom serializers/adapters, header precedence details): https://github.com/Hkarimi561/ng-ql/blob/main/projects/ng-ql/README.md
+
+Live interactive showcase (query console + real example components + copy-pasteable code): https://hkarimi561.github.io/ng-ql/
+
+Source: https://github.com/Hkarimi561/ng-ql

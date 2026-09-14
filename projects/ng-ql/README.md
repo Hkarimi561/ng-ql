@@ -223,6 +223,12 @@ For Signal APIs, call them inside `TestBed.runInInjectionContext(...)`.
 
 ng-ql never touches `window`, `document`, `localStorage`, or any other browser global. `NgQlCacheService` is a plain in-memory, per-injector store, and all lifecycle cleanup goes through `DestroyRef`, so the library behaves identically during a server-rendered pass and can be safely instantiated once per request.
 
+## AI-assisted development
+
+This repo ships an [`llms.txt`](../../llms.txt) at the root — a complete, flat reference to ng-ql's API (also served live at https://hkarimi561.github.io/ng-ql/llms.txt) — for feeding into an LLM's context or an AI coding tool that supports the [llms.txt convention](https://llmstxt.org/).
+
+If you use [Claude Code](https://claude.com/claude-code), there's also a ready-made skill at [`.claude/skills/ng-ql/`](../../.claude/skills/ng-ql/SKILL.md). Copy that folder into your own project's `.claude/skills/` directory and Claude will automatically ground its ng-ql code generation and debugging in this library's actual API and conventions (immutable query builder, the Observable/Signal split, cache-policy semantics, etc.) instead of guessing from generic Angular/HttpClient patterns.
+
 ## API reference
 
 | Export | Kind |
