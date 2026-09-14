@@ -9,6 +9,7 @@ import type {
 import type { NgQlPaginatedRequestState, NgQlRequestStatus } from '../models/state';
 import type { NgQlCacheService } from '../cache/ng-ql-cache.service';
 import { CachedRequestRunner } from './cached-request-runner';
+import { runOptimisticMutation } from './optimistic';
 
 export interface PaginatedRequestStateOptions<TModel> {
   readonly describe: (
@@ -33,6 +34,7 @@ export class NgQlPaginatedRequestStateImpl<TModel> implements NgQlPaginatedReque
   private readonly _meta = signal<NgQlPaginationMeta | null>(null);
   private readonly _links = signal<NgQlPaginationLinks | null>(null);
   private readonly _loading = signal(false);
+  private readonly _loadingMore = signal(false);
   private readonly _error = signal<unknown | null>(null);
   private readonly _status = signal<NgQlRequestStatus>('idle');
   private readonly runner: CachedRequestRunner<NgQlPaginatedResponse<TModel>>;
@@ -44,9 +46,16 @@ export class NgQlPaginatedRequestStateImpl<TModel> implements NgQlPaginatedReque
   readonly meta = this._meta.asReadonly();
   readonly links = this._links.asReadonly();
   readonly loading = this._loading.asReadonly();
+  readonly loadingMore = this._loadingMore.asReadonly();
   readonly error = this._error.asReadonly();
   readonly status = this._status.asReadonly();
   readonly hasData = computed(() => this._data() !== null);
+  readonly hasMore = computed(() => {
+    const meta = this._meta();
+    if (!meta) return false;
+    if (meta.lastPage === undefined) return true;
+    return meta.currentPage < meta.lastPage;
+  });
 
   constructor(private readonly options: PaginatedRequestStateOptions<TModel>) {
     this.runner = new CachedRequestRunner<NgQlPaginatedResponse<TModel>>(
@@ -73,6 +82,22 @@ export class NgQlPaginatedRequestStateImpl<TModel> implements NgQlPaginatedReque
     this._loading.set(false);
   }
 
+  mutateOptimistically<R>(
+    updater: (current: TModel[] | null) => TModel[],
+    commit: () => Observable<R>,
+  ): void {
+    runOptimisticMutation(
+      {
+        dataSignal: this._data,
+        statusSignal: this._status,
+        errorSignal: this._error,
+        destroyRef: this.options.destroyRef,
+      },
+      updater,
+      commit,
+    );
+  }
+
   setPage(page: number): void {
     this.page = page;
     this.execute('initial');
@@ -81,6 +106,12 @@ export class NgQlPaginatedRequestStateImpl<TModel> implements NgQlPaginatedReque
   setPerPage(perPage: number): void {
     this.perPage = perPage;
     this.execute('initial');
+  }
+
+  loadMore(): void {
+    if (this._loading() || this._loadingMore() || !this.hasMore()) return;
+    const nextPage = (this._meta()?.currentPage ?? this.page) + 1;
+    this.executeAppend(nextPage);
   }
 
   private execute(mode: 'initial' | 'refresh'): void {
@@ -109,6 +140,38 @@ export class NgQlPaginatedRequestStateImpl<TModel> implements NgQlPaginatedReque
           this._status.set(hadFallback ? 'success' : 'error');
         },
         onLoadingChange: (loading) => this._loading.set(loading),
+      },
+    });
+  }
+
+  /** Fetches `page` and appends its items to the existing `data`, for infinite-scroll UIs. */
+  private executeAppend(page: number): void {
+    const { fetch, cacheKey } = this.options.describe(page, this.perPage);
+    this.runner.run({
+      fetch,
+      cacheKey,
+      policy: this.options.policy,
+      ttl: this.options.ttl,
+      tags: this.options.tags,
+      endpoint: this.options.endpoint,
+      retryCount: this.options.retryCount,
+      retryDelay: this.options.retryDelay,
+      mode: 'initial',
+      callbacks: {
+        onValue: (value) => {
+          this._data.set([...(this._data() ?? []), ...value.data]);
+          this._meta.set(value.meta);
+          this._links.set(value.links ?? null);
+          this._error.set(null);
+          this._status.set('success');
+          this.page = page;
+        },
+        onError: (error) => {
+          // A failed "load more" is recoverable — keep the already-loaded
+          // pages in place and just surface the error.
+          this._error.set(error);
+        },
+        onLoadingChange: (loading) => this._loadingMore.set(loading),
       },
     });
   }

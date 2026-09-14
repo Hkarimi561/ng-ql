@@ -4,6 +4,7 @@ import type { NgQlCachePolicy } from '../models/cache-policy';
 import type { NgQlRequestState, NgQlRequestStatus } from '../models/state';
 import type { NgQlCacheService } from '../cache/ng-ql-cache.service';
 import { CachedRequestRunner } from './cached-request-runner';
+import { runOptimisticMutation } from './optimistic';
 
 export interface RequestStateOptions<T> {
   readonly fetch: () => Observable<T>;
@@ -47,6 +48,19 @@ export class NgQlRequestStateImpl<T> implements NgQlRequestState<T> {
     this._error.set(null);
     this._status.set('idle');
     this._loading.set(false);
+  }
+
+  mutateOptimistically<R>(updater: (current: T | null) => T, commit: () => Observable<R>): void {
+    runOptimisticMutation(
+      {
+        dataSignal: this._data,
+        statusSignal: this._status,
+        errorSignal: this._error,
+        destroyRef: this.options.destroyRef,
+      },
+      updater,
+      commit,
+    );
   }
 
   private execute(mode: 'initial' | 'refresh'): void {

@@ -126,10 +126,27 @@ protected readonly postsState = this.posts
 // postsState.invalidate() -- drops the cache entry, resets state to 'idle'
 
 protected readonly postsPage = this.posts.query().paginateSignal(1, 10);
-// postsPage.data() / .meta() / .links() / .setPage(2) / .setPerPage(25)
+// postsPage.data() / .meta() / .links() / .setPage(2) / .setPerPage(25)  -- these REPLACE data()
+
+// Infinite-scroll / "load more": appends instead of replacing.
+// postsPage.hasMore() / .loadingMore() (distinct from .loading())
+// postsPage.loadMore() -- no-op while already loading, or once hasMore() is false
 ```
 
 `status` is one of `'idle' | 'loading' | 'success' | 'error'`. All public signals are read-only.
+
+Every Signal state (both `NgQlRequestState` and `NgQlPaginatedRequestState`) also has
+`mutateOptimistically(updater, commit)` for optimistic UI: applies `updater` to the current data
+immediately, subscribes to `commit()`, and — only on error — restores the previous value/status
+and surfaces the error via `.error()`. Does not touch the cache (a mutation's own cache
+invalidation already governs what a later `refresh()` sees).
+
+```ts
+postsState.mutateOptimistically(
+  (posts) => (posts ?? []).filter((p) => p.id !== id),
+  () => this.posts.destroy(id),
+);
+```
 
 ### Inspection methods (never trigger a request)
 

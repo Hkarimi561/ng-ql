@@ -142,7 +142,23 @@ In the template: `postsState.data()`, `.loading()`, `.error()`, `.status()` (`'i
 'success' | 'error'`), `.hasData()`. All are read-only signals. `postsState.refresh()` re-executes
 (bypassing the `cache-first` shortcut, still updates the cache); `postsState.invalidate()` drops
 the cache entry and resets to `'idle'`. For paginated state, also `.meta()`, `.links()`,
-`.setPage(n)`, `.setPerPage(n)`.
+`.setPage(n)`, `.setPerPage(n)` (these **replace** `data()`).
+
+For infinite-scroll / "load more" UIs, use `.loadMore()` instead of `setPage` — it fetches the
+next page and **appends** to the existing array. `.hasMore()` says whether another page exists;
+`.loadingMore()` is `true` only during a `loadMore()` fetch (separate from `.loading()`). A failed
+`loadMore()` keeps the already-loaded pages and just surfaces the error.
+
+Every Signal state (single or paginated) also has `mutateOptimistically(updater, commit)` for
+optimistic UI — applies `updater` to the data immediately, subscribes to `commit()`, and rolls
+back to the previous value/status only if it errors:
+
+```ts
+postsState.mutateOptimistically(
+  (posts) => (posts ?? []).filter((p) => p.id !== id),
+  () => this.posts.destroy(id),
+);
+```
 
 **A plain `.get()`/`.first()`/`.paginate()` (Observable) call never touches the cache.** Caching
 only applies to the `*Signal` methods, via `NgQlSignalRequestOptions` (`cache`, `cacheTtl`,

@@ -6,6 +6,7 @@ import {
   runInInjectionContext,
 } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Subject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { provideNgQl } from '../config/provide-ng-ql';
 import { NgQlCacheService } from '../cache/ng-ql-cache.service';
@@ -234,6 +235,103 @@ describe('Signal-based request state', () => {
       meta: { current_page: 2, last_page: 3, per_page: 10, total: 30 },
     });
     expect(state.data()).toEqual([{ id: 11, title: 'B' }]);
+  });
+
+  it('loadMore() appends the next page to the existing data, without replacing it', () => {
+    const state = TestBed.runInInjectionContext(() => posts.query().paginateSignal(1, 2));
+    httpMock
+      .expectOne((r) => r.url === '/api/posts')
+      .flush({
+        data: [{ id: 1, title: 'A' }],
+        meta: { current_page: 1, last_page: 2, per_page: 2, total: 4 },
+      });
+    expect(state.hasMore()).toBe(true);
+    expect(state.loadingMore()).toBe(false);
+
+    state.loadMore();
+    expect(state.loadingMore()).toBe(true);
+    const req = httpMock.expectOne((r) => r.url === '/api/posts');
+    expect(req.request.params.get('page[number]')).toBe('2');
+    req.flush({
+      data: [{ id: 2, title: 'B' }],
+      meta: { current_page: 2, last_page: 2, per_page: 2, total: 4 },
+    });
+
+    expect(state.data()).toEqual([
+      { id: 1, title: 'A' },
+      { id: 2, title: 'B' },
+    ]);
+    expect(state.loadingMore()).toBe(false);
+    expect(state.hasMore()).toBe(false);
+  });
+
+  it('loadMore() is a no-op once hasMore() is false', () => {
+    const state = TestBed.runInInjectionContext(() => posts.query().paginateSignal(1, 2));
+    httpMock
+      .expectOne((r) => r.url === '/api/posts')
+      .flush({
+        data: [{ id: 1, title: 'A' }],
+        meta: { current_page: 1, last_page: 1, per_page: 2, total: 1 },
+      });
+    expect(state.hasMore()).toBe(false);
+
+    state.loadMore();
+    httpMock.expectNone((r) => r.url === '/api/posts');
+  });
+
+  it('a failed loadMore() keeps the already-loaded pages and surfaces the error', () => {
+    const state = TestBed.runInInjectionContext(() => posts.query().paginateSignal(1, 2));
+    httpMock
+      .expectOne((r) => r.url === '/api/posts')
+      .flush({
+        data: [{ id: 1, title: 'A' }],
+        meta: { current_page: 1, last_page: 2, per_page: 2, total: 4 },
+      });
+
+    state.loadMore();
+    httpMock
+      .expectOne((r) => r.url === '/api/posts')
+      .flush('boom', { status: 500, statusText: 'Server Error' });
+
+    expect(state.data()).toEqual([{ id: 1, title: 'A' }]);
+    expect(state.status()).toBe('success');
+    expect(state.error()).not.toBeNull();
+    expect(state.loadingMore()).toBe(false);
+  });
+
+  it('mutateOptimistically() applies immediately and keeps the value once commit succeeds', async () => {
+    const state = TestBed.runInInjectionContext(() => posts.allSignal({ cache: 'no-store' }));
+    httpMock.expectOne('/api/posts').flush([{ id: 1, title: 'A' }]);
+
+    const commit$ = new Subject<void>();
+    state.mutateOptimistically(
+      (current) => (current ?? []).filter((p) => p.id !== 1),
+      () => commit$,
+    );
+
+    expect(state.data()).toEqual([]);
+    expect(state.status()).toBe('success');
+
+    commit$.complete();
+    expect(state.data()).toEqual([]);
+  });
+
+  it('mutateOptimistically() rolls back to the previous value if commit errors', () => {
+    const state = TestBed.runInInjectionContext(() => posts.allSignal({ cache: 'no-store' }));
+    httpMock.expectOne('/api/posts').flush([{ id: 1, title: 'A' }]);
+
+    const commit$ = new Subject<void>();
+    state.mutateOptimistically(
+      (current) => (current ?? []).filter((p) => p.id !== 1),
+      () => commit$,
+    );
+    expect(state.data()).toEqual([]);
+
+    commit$.error(new Error('destroy failed'));
+
+    expect(state.data()).toEqual([{ id: 1, title: 'A' }]);
+    expect(state.status()).toBe('success');
+    expect(state.error()).not.toBeNull();
   });
 
   it('cleans up its subscription when its injector is destroyed, ignoring late responses', () => {

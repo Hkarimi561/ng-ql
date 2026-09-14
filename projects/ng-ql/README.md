@@ -122,6 +122,39 @@ protected readonly page = this.posts.query().paginateSignal(1, 10);
 // page.setPage(2) / page.setPerPage(25)
 ```
 
+`setPage`/`setPerPage` _replace_ `data`. For infinite-scroll / "load more" UIs, use `loadMore()` instead — it fetches the next page and _appends_ to the existing array:
+
+```ts
+protected readonly feed = this.posts.query().orderBy('createdAt', 'desc').paginateSignal(1, 20);
+
+// In the template: @for (post of feed.data(); ...) { ... }
+// A "Load more" button:
+//   [disabled]="!feed.hasMore() || feed.loadingMore()"
+//   (click)="feed.loadMore()"
+```
+
+`hasMore()` reflects whether another page exists past the currently-loaded one; `loadingMore()` is `true` only while a `loadMore()` fetch is in flight (distinct from `loading()`, which covers `setPage`/`setPerPage`/`refresh`). A failed `loadMore()` leaves the already-loaded pages in place and just surfaces the error via `.error()`.
+
+### Optimistic updates
+
+Every Signal state — `NgQlRequestState` and `NgQlPaginatedRequestState` alike — has `mutateOptimistically(updater, commit)`: it applies `updater` to the current data immediately, then subscribes to `commit()`. On success the optimistic value stays; on error, the previous value/status are restored and the error surfaces via `.error()`.
+
+```ts
+// Optimistic delete:
+postsState.mutateOptimistically(
+  (posts) => (posts ?? []).filter((p) => p.id !== id),
+  () => this.posts.destroy(id),
+);
+
+// Optimistic patch:
+postsState.mutateOptimistically(
+  (posts) => (posts ?? []).map((p) => (p.id === id ? { ...p, ...payload } : p)),
+  () => this.posts.patch(id, payload),
+);
+```
+
+It doesn't touch the cache directly — a mutation's own cache invalidation (see [Invalidation](#invalidation) below) already governs what a later `refresh()` sees.
+
 ## Caching policies
 
 | Policy                   | Behavior                                                                       |
